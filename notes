@@ -1,0 +1,138 @@
+dorfromantik but you're making dungeons
+  - when you place a tile, the character paths from where they are to your tile
+  - preview the outcomes of the routing
+    - you'll see if they get hurt in a fight or etc
+  - between turns, monsters can spawn or move around on the map
+  - some tiles have an NPC that offers a quest and a reward
+    - reward:
+      - on dr, it's just tiles
+      - here: tiles, restore hp, upgrade character
+    - quests:
+      - fight monster
+      - collect materials
+  - reward for clearing all monsters out of a region
+    - greater for bigger regions?
+    - +n tiles?
+    - heal?
+    - exp?
+  - pathing:
+    - character always detours to fight adjacent monsters before resuming pathing
+  - wang tiles
+    - the type assignments happen on tile edges for the purpose of matching
+  - monsters spawn from the edges of tiles from "unexplored regions"
+
+         @..................................
+         ......sssssssssssssss..............
+         ......s............................
+         ......s............................
+         ......s............................
+         ......s............................
+         ...................................
+         ...................................
+         ...................................
+         .....................x.............
+         ...................................
+         ...................................
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3 dwarves in a trenchcoat
+  - dwarves want access to the elf-only dungeon so they wear a disguise
+  - each dwarf has its own slot in the turn order
+    - can only move on bottom dwarf's turn
+    - can only use items/magic on middle dwarf's turn
+    - can only only attack on top dwarf's turn
+    - or do them all on one turn because you have three actions because 3 dwarves
+  - tactically disband the collective unit to take individual actions
+    - or get knocked over by an enemy or trap
+    - but alarms go off if an elf spots you
+  - each dwarf only has one stat, strength, and that stat derives to different attributes depending on position
+    - movement speed/dexterity is strength of bottom dwarf
+  - each dwarf can carry a different weapon, so you might need to reorder dwarves on context
+  - some enemies are in trenchcoats also, but sometimes they're just wearing trenchcoats and sometimes
+    they are other creatures stacked and in disguise
+
+gummy bear mafia
+  - less a concrete idea and more something to play with in a candy theme
+  - if things are gummy they can fuse and squish together
+
+pre-rolled attacks
+  - attack rolls happen for all of your stuff before you pick them
+  - choose among them knowing the results
+  - the choices branch the future RNG as well, and maybe you want to miss now to hit later sometimes
+  - you have an "insight" resource
+  - you can toggle between normal actions and "reading mode"
+  - action in reading mode consume insight and are rewindable
+
+
+split-world stealth in physical space and murderhobo in cyberspace
+  - the protagonist is super physically weak. loses all fights
+  - they're an elite hacker and can stomp things in the digital world
+  - the physical enemies are cyborgs with implants that can be turned against them if hacked
+    - sight implant: more perception, 
+        hacks:
+          - blind them 
+          - detect where they are looking
+          - make them see hallucinations
+    - arm implant: more powerful
+        hacks:
+          - disarm
+          - force attack
+    - leg implant: faster, but when hacked, can be immobilized, or made to kick things
+    - comm link: informs allies of things, but when hacked, can feed distracting information
+    - traps: hack to make them hit enemies instead
+    - robot enemies: hack to make them explode
+
+involuntary time travel
+  - you have an illness/curse/something that causes you to travel back in time by n turns every n turns
+  - when you do this, you leave behind time clones
+  - interacting with these time clones hurts you
+    - "time damage"
+    - littering the map with clones is the main source of pressure to move forward
+  - you can use the time travel to clone items
+    - cloned consumables don't necessarily have an effect again
+    - maybe cloned consumables do time damage when you eat/drink them
+  - there are things on the map which increase n
+    - this effectively brings you further into the future
+    - this is the only way you can get further into the future
+  - some types of special damage cause n to go down
+    - it also moves forward your reset point by the same amount
+  eg: you're at t=100 with n=5
+      you're looping through turns 96,97,98,99,100
+      if you take damage so that n=4, you instead loop through
+                                      97,98,99,100
+  - this can be presented to the player as time: remaining / rewind_amount
+                                                  ^ turns before rewind  ^
+                                                                         | n
+                                                 pickups add to both numbers
+         t=100         x......
+         t=105                x
+         rewind t=100         x
+  - "chronovirus"
+  - buttons that open doors when you stand on them
+  - buttons that activate deathtraps when you step on them
+    - lure monsters into it
+  - shops could be fun and irritating
+
+ 
+
+
+roguelike puyo puyo?
+
+
+detritus retry?
+
+x-com roguelike
+  - squad of ~6
