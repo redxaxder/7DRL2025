@@ -1,3 +1,101 @@
+
+turn structure:
+  move character around
+  monsters stay in place
+    - if you're out of tiles, monsters take a turn every time you move
+  once you reach an unexplored space, place your current tile there and do monster turns
+  on monster turns:
+    - monsters move (but don't attack player)
+    - monsters raze towns
+    - monsters spawn
+  on the player turn, if you step next to a monster, you have to fight it
+    - this may force you to fight a lot of monsters if they are in a contiguous chunk
+
+regions:
+  "completing" a region potentially gives a reward
+    - gain N-5 xp, where N is the number of tiles spanned
+    - gain 1 tile
+
+  "soft" impassability
+  walking "impassable" terrain the number of turns monsters will get once you place a tile
+  some different behaviors for terrain types:
+    - river: "soft" impassability
+      terminus: mountain, spring
+    - road: when moving along road, not forced to fight adjacent monster
+            accelerate monster movement until they leave road (if any edge of a tile is road)
+            (logic to stop them from moving too far at once)
+      terminus: town, character
+    - town:
+      can be razed by monsters
+      worth +1 exp per tile normally
+      not worth exp if razed
+      repair a town tile by expanding the town
+        - or quest reward repair?
+      completed town gets a wall that keeps monsters out
+    - forest:
+      monsters do not leave the forest
+    - grass:
+      the boring one
+
+  "perfecting" a tile gets a tile back
+    - many tiles do not have hard constraints on adjacent tiles
+    - but breaking soft constraints means you don't get the perfect bonus for the jank tiles
+    - hard constraints only on river and road
+
+resources:
+  hp
+  xp
+  tiles on the map
+  tile supply  <-- main bottleneck resource
+  quests in progress
+  unclaimed quest rewards
+
+what is the reward for levelling up?
+  5hp / 5xp
+  max hp +1
+  xp required +4
+  full heal
+  (can defer claiming level up and xp will be preserved on overflow)
+
+quests:
+  - kill N of this monster
+  - fetch quest?
+  reward:
+    - gain 5? tiles on completion
+    - gain a full heal on claim
+      - deposit healing potion on tile
+      - stepping on the potion drinks it
+        (sometimes this is an obstacle)
+
+monsters:
+  - different pathing preferences
+  - a monster that seeks out towns to wreck
+    - giant lizard
+  - a monster that chases after the player
+  - a monster that eats tiles?
+  - every darkness tile that is adjacent to a placed tile has a chance to spawn a monster each turn
+    - a monster in darkness can step onto a placed tile
+
+
+ui:
+  wasd to move
+  qe rotates the current tile
+  x to discard
+  z to level up
+  c to claim quest reward
+  number above monster
+  - or number above block of monsters?
+  hints:
+  - distinguish spaces where the current tile can be placed with its current rotation
+  - mouse movement with shown path
+  - highlight contiguous blocks of monsters
+  color coded terrain
+  - every terrain is drawn using 1bit graphic style
+  - if there are multiple terrain on a tile, that tile is multiple colors
+
+
+items?
+
 dorfromantik but you're making dungeons
   - when you place a tile, the character paths from where they are to your tile
   - preview the outcomes of the routing
