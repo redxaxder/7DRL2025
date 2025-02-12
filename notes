@@ -1,3 +1,230 @@
+v0.1 "scaffold"
+ - terrain with no special behavior
+ - player moves
+ - place tiles
+ - draw tiles
+   - flat shading for terrain
+ - draw hand tile
+ - supply of 30 tiles
+ - placeholder art for monster/player
+ - keyboard movement
+ - keys to rotate tile
+ - key to discard tile
+ - torroidal geometry
+ - camera
+   - center is within max-norm 4 of player position
+ - unform tile rng (fuss with it later)
+v0.2 "iterable"
+ - placeholder art for npc
+ - 3 monsters
+ - monsters spawn
+   - initial position is outside the map
+   - tile placed there blocks a spawn
+ - monster turns
+ - extermination quest
+   - appearance requirements:
+     - there must be at least one monster type for which there is no ongoing quest
+     - there must be at least 1 of such a monster
+   - on completion, get 5 tiles + quest heal
+ - perfect tile bonus (+1 tile)
+ - combat
+   - restrict movement when by a monster
+   - funnel system
+ - key to level up
+ - key to collect nearest quest heal
+ - exp system
+   - start with 3hp / 3 level exp
+   - on level up: full heal, +1 max hp, +4 level exp
+ - display
+   - hp
+   - total exp
+   - exp-to-level
+   - remaining tiles
+   - upcoming monster turns
+   - # available quest heals
+ - complete region
+   - get size - 5 exp
+   - get 1 tile
+ - stepping on quest heal consumes (placeholder art)
+ - terrain effects:
+   - forest - restrict monster moves
+   - road - unrestrict player moves; restrict tile placement
+   - town - restrict monster moves
+   - river - restrict tile placement; pool extra monster turns
+           - not eligible for terrain quest if no river source
+   - grass - no changes. just didn't want to leave you out, bro
+ - victory
+   - collect mcguffin which starts surrounded by monsters in the forest
+     - 4th monster type that doesn't take a turn
+v0.3 "qol"
+ - end game screen / detection
+ - animate particles for gaining exp / tiles / hp / monster turns
+ - animate quest completion??
+ - restart
+ - monster behavior by type
+   - random movement
+   - approach player
+   - flees other monsters, default random
+ - animate movement
+ - art:
+   - player
+   - monsters
+   - npc(s)?
+   - terrain
+     - folder per terrain type
+     - files 0000.png through 1111.png (skip as needed)  right, up, left, down
+     - 1010_connected, 1010_split, 0101_connected, 0101_split.png
+   - mcguffin
+   - UI
+     - exp
+     - hp
+     - quest heal item
+     - monster turns
+ - sounds?
+ - music?
+ - indicate off-map monsters (red eyes?)
+ - click to move / place tile
+   - hover shows movement path
+   - movement path is displayed differently if passing through forced combat
+ - tile hints
+   - shows where on the screen the current tile can be played
+   - put a tick mark in the top left corner of the tile in hand
+   - on playable positions put tick mark in the corner of the spot based on rotation
+   - color the tick mark based on whether the tile is a full or partial match
+ - region hints
+   - if a region is large enough, give it a flag
+   - on the flag, put the size of the current exp reward
+
+
+
+
+.....
+.###.
+.#*#.
+.##..
+.....
+
+
+what is a tile, from the perspective of the software?
+
+enum Terrain {
+  None, Grass, Town, Road, Forest, River, Quest
+}
+enum Cross {
+  None, Vertical, Horizontal
+}
+
+struct Tile {
+  [Terrain;5] // right up left down center
+}
+
+how do we draw them?
+
+maybe do it layers?
+  first draw this type, then that type over it, etc
+  grass < road < river < town < forest < quest
+
+
+
+####################
+#     GGGGGGGGG    #
+#     GGGGGGGGG    #
+#CCCC   GGGG   CCCC#
+#CCCC   GGGG   CCCC#
+#CCCC   GGGG   CCCC#
+#CCCC   GGGG   CCCC#
+#CCCC   GGGG   CCCC#
+#     GGGGGGGGG    #
+#     GGGGGGGGG    #
+####################
+
+####################
+#     GGGGGGGGG    #
+#     GGGGGGGGG    #
+#CCCC          CCCC#
+#CCCCCCCCCCCCCCCCCC#
+#CCCCCCCCCCCCCCCCCC#
+#CCCCCCCCCCCCCCCCCC#
+#CCCC          CCCC#
+#     GGGGGGGGG    #
+#     GGGGGGGGG    #
+####################
+
+####################
+#     GGGGGGGGG    #
+#     GGGGGGGGG    #
+#GGGGGGGGGGGGG CCCC#
+#GGGGGGGGGGGGCCCCCC#
+#GGGGGGGGCCCCCCCCCC#
+#GGGGGGCCCCCCCCCCCC#
+#GGGG  CCCCCCCCCCCC#
+#     CCCCCCCCC    #
+#     CCCCCCCCC    #
+####################
+
+
+
+
+draw(tile, screencoord, canvas) {
+  for terrain in tile.0 {
+    match terrain {
+       Terrain::Forrest => {
+         for i in rand(10) {
+           // x, y randomly chosen inside tile section bounds
+           draw_tree(x, y)
+         }
+       }
+    }
+  }
+}
+
+
+struct Zawarudo<T> {
+  tiledata: [T; WIDTH * HEIGHT],
+}
+
+fn canonical(v: V2) -> (D8,V2) {
+    let x0 = pos.x.euclidean_mod(WIDTH * 2);
+    let y0 = pos.x.euclidean_mod(HEIGHT * 2);
+    let y = ...
+    let mut p = D8::Id;
+    (p, V2{x,y})
+}
+
+floodfill:
+  create a new Zawarudo with say pathing info
+
+impl Zawarudo {
+  fn get(&self, pos: V2) -> T {
+    let c = canonical(pos);
+    ...
+    let ix = x + (y * WIDTH);
+    p * self.tiledata[ix]
+  }
+
+  fn put(&mut self, pos: V2, t: T) {
+    let c = canonical(pos);
+    ...
+    let y = ...
+    self.tiledata[ix] = p * t;
+  }
+}
+
+
+
+canonical << check if this is visited already. if it is, don't expand
+raw position  <-- add raw neighbors of this when expanding
+
+
+
+enemy engagement:
+  1) when you're next to an enemy, you have to fight it
+     after you fight it, you're in the space the enemy was, and this can cascade
+  2) when you're next to an enemy, you have to fight it
+     after you fight it, adjacent enemies funnel into its location
+     (exception if you're fighting to clear a road)
+
+
 
 turn structure:
   move character around
@@ -6,7 +233,6 @@ turn structure:
   once you reach an unexplored space, place your current tile there and do monster turns
   on monster turns:
     - monsters move (but don't attack player)
-    - monsters raze towns
     - monsters spawn
   on the player turn, if you step next to a monster, you have to fight it
     - this may force you to fight a lot of monsters if they are in a contiguous chunk
@@ -21,19 +247,17 @@ regions:
   some different behaviors for terrain types:
     - river: "soft" impassability
       terminus: mountain, spring
-    - road: when moving along road, not forced to fight adjacent monster
-            accelerate monster movement until they leave road (if any edge of a tile is road)
-            (logic to stop them from moving too far at once)
+    - road: 
+        when you're on a tile that that an outward road edge that is matched by the adjacent tile,
+        you can move in that direction even if it would normally be forbidden by needing to fight a monster
       terminus: town, character
     - town:
-      can be razed by monsters
       worth +1 exp per tile normally
-      not worth exp if razed
-      repair a town tile by expanding the town
-        - or quest reward repair?
-      completed town gets a wall that keeps monsters out
+      each town tile has a wall, monsters can't pass through walls
+        when a tile has an outward town edge and at least one non-town edge,
+        monster movement is limited to non-town edges
     - forest:
-      monsters do not leave the forest
+        when a tile has an outward forest edge, monster movement is limited to such edges
     - grass:
       the boring one
 
@@ -57,9 +281,24 @@ what is the reward for levelling up?
   full heal
   (can defer claiming level up and xp will be preserved on overflow)
 
+how do you win?
+  - time survival
+  - are you a bad enough dude to beat the big monster? (dragonsweeper style)
+    tiered quest, there's a big monster-spawning tile, every time you play any tile
+    a stronger monster spawns on the boss tile. Must kill it N times. The boss does
+    not move
+  - play in some sort of compact space, there are a finite number of tiles you can play,
+    once you have plugged all the holes, monsters can't get in 
+  - final score based on:
+    - perfect tiles
+    - tiles without monsters on them
+    - leftover resources
+
 quests:
   - kill N of this monster
   - fetch quest?
+  - monster nest?
+    spawns monsters regularly, has to be cleared
   reward:
     - gain 5? tiles on completion
     - gain a full heal on claim
@@ -134,8 +373,27 @@ dorfromantik but you're making dungeons
 
 
 
-
-
+#######################################
+#      GGG         #                  #
+# GGGGGG           #                  #
+# GGGGGG           #                  #
+#GGGGGGG    CCCCCCC#                  #
+#GGGGGGG CCCCCCCCCC#        |---------#
+#G       CCCCCCCCCC#        |         #
+#      CCCCCCCCCC  #        |         #
+#      CCCCCCCCC   #        |         #
+#      CCCCCCC     #        |         #
+#######################################
+#        |         #
+#        |         #
+#        |         #
+#        |         #
+#        |---------#
+#        |         #
+#        |         #
+#        |         #
+#        |         #
+####################
 
 
 
