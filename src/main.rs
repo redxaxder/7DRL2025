@@ -2,18 +2,6 @@
 
 use rl2025::*;
 
-#[repr(u8)]
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
-enum Terrain {
-  None,
-  Grass,
-  //Cave,
-  //Town,
-  //River,
-  //Road,
-  //Forest,
-  //Quest,
-}
 
 
 
@@ -134,6 +122,12 @@ struct Enemy {
   t: EnemyType
 }
 
+const DISPLAY_GRID: Grid = Grid {
+  tile_margin: Vec2::ZERO,
+  tile_size: Vec2{x: 128., y: 128. },
+  bounds: IRect{ x: -10, y: -10, width: 20, height: 10 },
+};
+
 
 #[macroquad::main("7drl")]
 async fn main() {
@@ -145,14 +139,25 @@ async fn main() {
     let mut game = SimulationState::new();
 
     let mut resources = Resources::new(ASSETS);
+    for path in LOAD_ME {
+      resources.load_texture(path, FilterMode::Nearest);
+    }
+
+
+    let display = Display::new(resources, DISPLAY_GRID.dim());
+
+
+
     game.next_tile();
 
-
+    let example_tile: Img = terrain_bridge(Terrain::None, Dir4::Right);
 
     loop {
-        clear_background(LIGHTGRAY);
+        clear_background(BLACK);
+        display.draw_tile(Vec2::ZERO, &DISPLAY_GRID, RED, &example_tile);
 
-        debug!("Still alive!");
+
+
 
         next_frame().await
     }

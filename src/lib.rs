@@ -32,3 +32,19 @@ pub mod footguns;
 
 pub mod misc;
 
+pub mod assets;
+pub use crate::assets::*;
+
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub enum Terrain {
+  None,
+  Grass,
+  //Cave,
+  //Town,
+  //River,
+  //Road,
+  //Forest,
+  //Quest,
+}
