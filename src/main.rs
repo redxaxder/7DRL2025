@@ -57,10 +57,14 @@ struct SimulationState {
   player_tile_transform: D8,
 
   board: Buffer2D<Tile>,
-  enemies: HashMap<Position, Enemy>,
-
+  regions: Buffer2D<[RegionId;4]>,
+  region_sizes: Map<RegionId, usize>,
+  next_region_id: RegionId,
+  enemies: Map<Position, Enemy>,
   rng: Rng,
 }
+
+type RegionId = u16;
 
 const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
 const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
@@ -77,7 +81,10 @@ impl SimulationState {
       player_next_tile: Tile::default(),
       player_tile_transform: D8::E,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
-      enemies: HashMap::new(),
+      enemies: Map::new(),
+      regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
+      next_region_id: 1,
+      region_sizes: Map::new(),
       rng: from_global_rng(),
     }
   }
@@ -94,6 +101,97 @@ impl SimulationState {
     self.player_level * 3
   }
 
+  fn fill_region_ids(&mut self, position: Position, dir: Dir4) {
+    let mut frontier: Vec<(Position, Dir4)> = vec!( (position, dir));
+
+    while let Some((p,d)) = frontier.pop() {
+      let rid = self.regions[p][d.index()];
+      let t0 = self.board[p].contents[d.index()];
+
+      let neighbors = [
+        // Example with d = Right
+        // |-----------------|-----------------|
+        // | \             / | \             / |
+        // |   \    n1   /   |   \         /   |
+        // |     \     /     |     \     /     |
+        // |       \ /       |       \ /       |
+        // | n0    / \  (p,d)| n3    / \       |
+        // |     /     \     |     /     \     |
+        // |   /    n2   \   |   /         \   |
+        // | /             \ | /             \ |
+        // |-----------------|-----------------|
+        // note: n0 is special cased to only be a neighbor if center terrain matches
+        (p, d.opposite()),
+        (p, d.rotate4(1)),
+        (p, d.rotate4(3)),
+        (p + d.into(), d.opposite())
+      ];
+
+      let mut min_rid = RegionId::MAX;
+
+      for i in 0..4 { // find the greatest region id among matching neighbors
+        let (np, nd) = neighbors[i];
+        // the opposite is not considered adajcent if the center terrain doesn't match
+        if i == 0 && self.board[p].contents[4] != t0 { continue; }
+        let t1 = self.board[np].contents[nd.index()];
+        if t1 != t0 { continue; }
+        let rid1 = self.regions[np][nd.index()];
+
+        min_rid = min_rid.min(rid1);
+      }
+
+      for i in 0..4 { // walk matches with rid below min
+        let (np, nd) = neighbors[i];
+        // the opposite is not considered adajcent if the center terrain doesn't match
+        if i == 0 && self.board[p].contents[4] != t0 { continue; }
+        let t1 = self.board[np].contents[nd.index()];
+        if t1 != t0 { continue; }
+        let rid1 = self.regions[np][nd.index()];
+
+        if rid1 < min_rid { frontier.push((np, nd)) }
+      }
+
+      if min_rid < rid {
+        self.regions[p][d.index()] = min_rid;
+      }
+    }
+  }
+
+  pub fn place_tile(&mut self, position: Position, tile: Tile) {
+    self.board[position] = tile;
+    for d in Dir4::list() {
+      self.fill_region_ids(position, d);
+    }
+    for d in Dir4::list() {
+      self.fill_region_ids(position,d);
+      if self.regions[position][d.index()] == RegionId::MAX {
+        self.regions[position][d.index()] = self.next_region_id;
+        self.next_region_id += 1;
+      }
+    }
+    // TODO: perfect tile bonus
+
+  }
+
+  pub fn update_region_sizes(&mut self) {
+    self.region_sizes.clear();
+    let mut v = vec![];
+    for p in BOARD_RECT.iter() {
+      v.clear();
+      for d in Dir4::list() {
+        let rid = self.regions[p][d.index()];
+        if rid == RegionId::MAX { continue; }
+        v.push(rid);
+      }
+      v.sort();
+      v.dedup();
+      // FIXME: algorithm is quadratic in region count
+      // maybe replace linear map with hashmap
+      for &rid in &v {
+        *self.region_sizes.entry(rid).or_insert(0) += 1;
+      }
+    }
+  }
 
   pub fn player_current_tile(&self) -> Tile {
     self.player_tile_transform * self.player_next_tile
@@ -135,10 +233,11 @@ async fn main() {
 
             // try to place tile
             if sim.board[sim.player_pos] == Tile::default() {
-              sim.board[sim.player_pos] = sim.player_current_tile();
+              sim.place_tile(sim.player_pos, sim.player_current_tile());
               sim.next_tile();
-	      tile_placed = true;
-              debug!("tiles left: {:?}", sim.player_tiles);
+              tile_placed = true;
+              //debug!("tiles left: {:?}", sim.player_tiles);
+              sim.update_region_sizes();
             }
           },
           Input::Rotate1 => {

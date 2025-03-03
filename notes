@@ -31,7 +31,7 @@ v0.2 "iterable"
    - restrict movement when by a monster
    - funnel system
    - gain exp from monster kill
- - key to level up
+ + key to level up
  - key to collect nearest quest heal
  + exp system
    + start with 3hp / 3 level exp
@@ -46,7 +46,8 @@ v0.2 "iterable"
  - complete region
    - get size - 5 exp
    - get 1 tile
- - stepping on quest heal consumes (placeholder art)
+ - stepping on quest heal consumes 
+   + (placeholder art)
  - terrain effects:
    - forest - restrict monster moves
    - road - unrestrict player moves; restrict tile placement
