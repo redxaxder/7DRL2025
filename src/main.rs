@@ -3,6 +3,7 @@
 use rl2025::*;
 use std::collections::{HashMap, HashSet};
 
+
 mod tiles {
   use crate::*;
   use Terrain::*;
@@ -162,26 +163,54 @@ impl SimulationState {
 
   pub fn place_tile(&mut self, position: Position, tile: Tile) {
     self.board[position] = tile;
-    for d in Dir4::list() {
-      self.fill_region_ids(position, d);
-    }
-    for d in Dir4::list() {
-      self.fill_region_ids(position,d);
-      if self.regions[position][d.index()] == RegionId::MAX {
-        self.regions[position][d.index()] = self.next_region_id;
-        self.next_region_id += 1;
-      }
-    }
-    let wp = self.board.rect.wrap(position);
-    self.void_frontier.remove(&wp);
-    for d in Dir4::list() {
-      let n = self.board.rect.wrap(wp + d.into());
-      if self.board[n] == Tile::default() {
-        self.void_frontier.insert(n);
-      }
-    }
-    // TODO: perfect tile bonus
 
+
+    { // region tracking
+      for d in Dir4::list() {
+        self.fill_region_ids(position, d);
+      }
+      for d in Dir4::list() {
+        self.fill_region_ids(position,d);
+        if self.regions[position][d.index()] == RegionId::MAX {
+          self.regions[position][d.index()] = self.next_region_id;
+          self.next_region_id += 1;
+        }
+      }
+      let wp = self.board.rect.wrap(position);
+      self.void_frontier.remove(&wp);
+      for d in Dir4::list() {
+        let n = self.board.rect.wrap(wp + d.into());
+        if self.board[n] == Tile::default() {
+          self.void_frontier.insert(n);
+        }
+      }
+    }
+
+    { // check for perfect tile bonuses
+      // on placed tile and neighbors
+      let mut to_check = vec!(position);
+      for d in Dir4::list() {
+        to_check.push(position + d.into());
+      }
+      for &p in &to_check {
+        let mut is_matched = true;
+        let ptile = self.board[p];
+
+        for d in Dir4::list() {
+          let ntile = self.board[p + d.into()];
+          if ptile.contents[d.index()]
+            != ntile.contents[d.opposite().index()] {
+            is_matched = false;
+          }
+        }
+        if is_matched {
+          // perfect tile bonus
+          // TODO: UI hint
+          self.player_tiles += 1;
+          debug!("perfect tile bonus");
+        }
+      }
+    }
   }
 
   pub fn update_region_sizes(&mut self) {
@@ -247,7 +276,8 @@ async fn main() {
               sim.place_tile(sim.player_pos, sim.player_current_tile());
               sim.next_tile();
               tile_placed = true;
-              debug!("tiles left: {:?}", sim.player_tiles);
+              //debug!("tiles left: {:?}", sim.player_tiles);
+              sim.update_region_sizes();
             }
           },
           Input::Rotate1 => {
@@ -285,13 +315,13 @@ async fn main() {
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
             let nme = Enemy::new(&mut sim.rng, random_enemy_type);
             sim.enemies.insert(p, nme);
-            debug!("spawned a monster at {:?}", p)
+            //debug!("spawned a monster at {:?}", p)
           }
         }
 
         //do monster turn
         for (pos, nme) in sim.enemies.iter() {
-          debug!("a monster turn happened at {:?}", pos)
+          //debug!("a monster turn happened at {:?}", pos)
         }
       }
       
