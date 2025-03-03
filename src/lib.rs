@@ -112,17 +112,33 @@ impl std::ops::Mul<Tile> for D8 {
 
 pub type EnemyId = u64;
 
+#[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub enum EnemyType {
-  Mook,
-  Two,
-  Three,
-  Four,
+  Mook = 0,
+  Two = 1,
+  Three = 2,
+  Four = 3,
+}
+
+impl EnemyType {
+  pub fn list() -> [Self;3] {
+    unsafe {
+      core::array::from_fn(|x| core::mem::transmute(x as u8))
+    }
+  }
 }
 
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub struct Enemy {
-  pub id: EnemyId,
-  pub pos: Position,
-  pub t: EnemyType
+  id: EnemyId,
+  t: EnemyType
+}
+
+impl Enemy {
+  pub fn new(rng: &mut Rng, nme_type: EnemyType) -> Self {
+    let id = rng.next_u64();
+    let t = nme_type;
+    Enemy { id, t}
+  }
 }

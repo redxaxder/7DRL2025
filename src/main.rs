@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use rl2025::*;
-
+use std::collections::{HashMap, HashSet};
 
 
 mod tiles {
@@ -57,12 +57,13 @@ struct SimulationState {
   player_tile_transform: D8,
 
   board: Buffer2D<Tile>,
-  enemies: Map<Position, Enemy>,
+  enemies: HashMap<Position, Enemy>,
 
   rng: Rng,
 }
 
 const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
+const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
 
 impl SimulationState {
   pub fn new() -> Self {
@@ -76,7 +77,7 @@ impl SimulationState {
       player_next_tile: Tile::default(),
       player_tile_transform: D8::E,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
-      enemies: Map::new(),
+      enemies: HashMap::new(),
       rng: from_global_rng(),
     }
   }
@@ -123,6 +124,7 @@ async fn main() {
     let mut display = Display::new(resources, display_dim);
 
     loop {
+      let mut tile_placed: bool = false;
       if let Some(input) = get_input() {
         //debug!("{:?}", input);
         // get input and advance state
@@ -135,7 +137,8 @@ async fn main() {
             if sim.board[sim.player_pos] == Tile::default() {
               sim.board[sim.player_pos] = sim.player_current_tile();
               sim.next_tile();
-              //debug!("tiles left: {:?}", sim.player_tiles);
+	      tile_placed = true;
+              debug!("tiles left: {:?}", sim.player_tiles);
             }
           },
           Input::Rotate1 => {
@@ -158,6 +161,31 @@ async fn main() {
         display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
       }
+
+      //monsters
+      if tile_placed || sim.player_tiles < 1 {
+	//spawn monsters maybe
+	for p in candidate_monster_spawn_tiles(&sim) {
+	  if sim.enemies.contains_key(&p) {
+	    // don't spawn a monster if there's already a monster
+	    continue;
+	  }
+	  if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
+	    //spawn a monster in this tile
+	    let random_enemy_type =
+	      EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+	    let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+	    sim.enemies.insert(p, nme);
+	    debug!("spawned a monster at {:?}", p)
+	  }
+	}
+
+	//do monster turn
+	for (pos, nme) in sim.enemies.iter() {
+	  debug!("a monster turn happened at {:?}", pos)
+	}
+      }
+      
       let scale: f32 = f32::min(
         screen_width() / display.dim.x as f32,
         screen_height() / display.dim.y as f32,
@@ -270,4 +298,18 @@ async fn main() {
     }
 }
 
+fn candidate_monster_spawn_tiles(sim: &SimulationState) -> HashSet<IVec> {
+  let mut accum: HashSet<IVec> = HashSet::new();
+  for p in sim.board.rect.iter() {
+    if sim.board[p] == Tile::default()  {
+      for dir in Dir4::list() {
+	let candidate_p = p + IVec::from(dir);
+	if sim.board[candidate_p] != Tile::default() {
+	  accum.insert(candidate_p);
+	}
+      }
+    }
+  }
+  accum
+}
 
