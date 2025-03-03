@@ -1,21 +1,21 @@
 
 
 v0.1 "scaffold"
- - terrain with no special behavior
- - player moves
- - place tiles
- - draw tiles
-   - flat shading for terrain
+ + terrain with no special behavior
+ + player moves
+ + place tiles
+ + draw tiles
+   + flat shading for terrain
  - draw hand tile
- - supply of 30 tiles
+ + supply of 30 tiles
  - placeholder art for monster/player
- - keyboard movement
- - keys to rotate tile
- - key to discard tile
- - torroidal geometry
- - camera
-   - center is within max-norm 4 of player position
- - unform tile rng (fuss with it later)
+ + keyboard movement
+ + keys to rotate tile
+ + key to discard tile
+ + torroidal geometry
+ + camera
+   + center is within max-norm 4 of player position
+ + unform tile rng (fuss with it later)
 v0.2 "iterable"
  - placeholder art for npc
  - 3 monsters

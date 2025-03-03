@@ -61,7 +61,7 @@ impl Display {
 
     Self{ camera_focus, resources, render_to, texture, dim, }
   }
-  pub fn draw_tile(&self,
+  pub fn draw_grid(&self,
     position: Vec2,
     color: Color,
     image: &Img,

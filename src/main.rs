@@ -63,7 +63,12 @@ impl Default for Tile {
 impl std::ops::Mul<Tile> for D8 {
   type Output = Tile;
   fn mul(self, rhs: Tile) -> Self::Output {
-    todo!()
+    let mut contents = rhs.contents.clone();
+    for d in Dir4::list() {
+      let d2 = self * d;
+      contents[d2.index()] = rhs.contents[d.index()];
+    }
+    Tile {contents}
   }
 }
 
@@ -76,6 +81,7 @@ struct SimulationState {
   player_level: i64,
   player_tiles: i64,
   player_next_tile: Tile,
+  player_tile_transform: D8,
 
   board: Buffer2D<Tile>,
   enemies: Map<Position, Enemy>,
@@ -95,14 +101,20 @@ impl SimulationState {
       player_level: 1,
       player_tiles: 30,
       player_next_tile: Tile::default(),
+      player_tile_transform: D8::E,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: Map::new(),
       rng: from_global_rng(),
     }
   }
 
+  pub fn player_current_tile(&self) -> Tile {
+    self.player_tile_transform * self.player_next_tile
+  }
+
   pub fn next_tile(&mut self) {
     self.player_next_tile = tiles::generate(&mut self.rng);
+    self.player_tile_transform = D8::E;
     self.player_tiles -= 1;
   }
 
@@ -135,7 +147,6 @@ async fn main() {
     let mut sim = SimulationState::new();
     sim.next_tile();
 
-
     let mut resources = Resources::new(ASSETS);
     for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
 
@@ -153,19 +164,20 @@ async fn main() {
 
             // place tile
             if sim.board[sim.player_pos] == Tile::default() {
-              sim.board[sim.player_pos] = sim.player_next_tile;
+              sim.board[sim.player_pos] = sim.player_current_tile();
               sim.next_tile();
               debug!("tiles left: {:?}", sim.player_tiles);
             }
           },
           Input::Rotate1 => {
-            // TODO
+            sim.player_tile_transform = D8::R1 * sim.player_tile_transform;
           }
           Input::Rotate2 => {
-            //TODO
+            sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
           }
           Input::Discard => {
-            //TODO
+            sim.next_tile();
+            debug!("tiles left: {:?}", sim.player_tiles);
           }
           Input::LevelUp => {
             //TODO
@@ -222,14 +234,14 @@ async fn main() {
               for d in Dir4::list() {
                 if tile.contents[d.index()] != terrain { continue; }
                 let img = terrain_triangle(terrain, d);
-                display.draw_tile(p.into(), terrain.color(), &img);
+                display.draw_grid(p.into(), terrain.color(), &img);
               }
             } else if opposite && tile.contents[4] == terrain {
               // no adjacency + opposite + center implies bridge
               for d in Dir4::list() {
                 if tile.contents[d.index()] != terrain { continue; }
                 let img = terrain_bridge(terrain, d);
-                display.draw_tile(p.into(), terrain.color(), &img);
+                display.draw_grid(p.into(), terrain.color(), &img);
                 break; // a single bridge image covers both directions
               }
             } else {
@@ -237,7 +249,7 @@ async fn main() {
               for d in Dir4::list() {
                 if tile.contents[d.index()] != terrain { continue; }
                 let img = terrain_wedge(terrain, d);
-                display.draw_tile(p.into(), terrain.color(), &img);
+                display.draw_grid(p.into(), terrain.color(), &img);
               }
 
             }
@@ -249,7 +261,7 @@ async fn main() {
         }
 
         // Draw player
-        display.draw_tile(
+        display.draw_grid(
           sim.player_pos.into(),
           RED,
           HERO
