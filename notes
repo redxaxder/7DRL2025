@@ -15,7 +15,7 @@
    + center is within max-norm 4 of player position
  + unform tile rng (fuss with it later)
 v0.2 "iterable"
- - placeholder art for npc
+ + placeholder art for npc
  - 3 monsters
  - monsters spawn
    - initial position is outside the map
