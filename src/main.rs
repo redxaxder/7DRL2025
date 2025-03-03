@@ -144,7 +144,7 @@ async fn main() {
 
     loop {
       if let Some(input) = get_input() {
-        debug!("{:?}", input);
+        //debug!("{:?}", input);
         // get input and advance state
         match input {
           Input::Dir(dir4) => {
@@ -152,8 +152,11 @@ async fn main() {
             sim.player_pos += dir4.into();
 
             // place tile
-            sim.board[sim.player_pos] = sim.player_next_tile;
-            sim.next_tile()
+            if sim.board[sim.player_pos] == Tile::default() {
+              sim.board[sim.player_pos] = sim.player_next_tile;
+              sim.next_tile();
+              debug!("tiles left: {:?}", sim.player_tiles);
+            }
           },
           Input::Rotate1 => {
             // TODO
@@ -169,7 +172,7 @@ async fn main() {
           }
         }
 
-        debug!("{:?}", sim.player_pos);
+        //debug!("{:?}", sim.player_pos);
         let camera_offset: IVec = display.camera_focus - sim.player_pos;
         display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
