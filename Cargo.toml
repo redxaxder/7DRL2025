@@ -12,3 +12,4 @@ log = "0.4"
 sapp-console-log = "0.1"
 env_logger = "0.7"
 macroquad = "0.4.11"
+linear-map = { path = "linear-map" }

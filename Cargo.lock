@@ -199,6 +199,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
+name = "linear-map"
+version = "1.2.0-x"
+
+[[package]]
 name = "log"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -394,6 +398,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "include_dir",
+ "linear-map",
  "log",
  "macroquad",
  "rand",
