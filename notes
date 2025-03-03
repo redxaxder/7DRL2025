@@ -17,9 +17,9 @@
 v0.2 "iterable"
  + placeholder art for npc
  - 3 monsters
- - monsters spawn
-   - initial position is outside the map
-   - tile placed there blocks a spawn
+ + monsters spawn
+   + initial position is outside the map
+   + tile placed there blocks a spawn
  - monster turns
  - extermination quest
    - appearance requirements:

@@ -22,10 +22,10 @@ pub const HERO: &Img = &Img {
 pub const fn enemy(nme: EnemyType) -> Img {
   let rect = Rect{x: 0., y: 0., w: 128., h: 128. };
   let path = match nme {
-    EnemyType::Mook  => "nme1.png",
-    EnemyType::Two   => "nme2.png",
-    EnemyType::Three => "nme3.png",
-    EnemyType::Four  => "nme4.png",
+    EnemyType::Clyde  => "nme1.png",
+    EnemyType::Blinky   => "nme2.png",
+    EnemyType::Pinky => "nme3.png",
+    EnemyType::GhostWitch  => "nme4.png",
   };
   Img { rect, path }
 }

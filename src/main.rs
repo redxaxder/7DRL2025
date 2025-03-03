@@ -3,7 +3,6 @@
 use rl2025::*;
 use std::collections::{HashMap, HashSet};
 
-
 mod tiles {
   use crate::*;
   use Terrain::*;
@@ -248,8 +247,7 @@ async fn main() {
               sim.place_tile(sim.player_pos, sim.player_current_tile());
               sim.next_tile();
               tile_placed = true;
-              //debug!("tiles left: {:?}", sim.player_tiles);
-              sim.update_region_sizes();
+              debug!("tiles left: {:?}", sim.player_tiles);
             }
           },
           Input::Rotate1 => {
@@ -275,26 +273,26 @@ async fn main() {
 
       //monsters
       if tile_placed || sim.player_tiles < 1 {
-	//spawn monsters maybe
-	for p in candidate_monster_spawn_tiles(&sim) {
-	  if sim.enemies.contains_key(&p) {
-	    // don't spawn a monster if there's already a monster
-	    continue;
-	  }
-	  if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
-	    //spawn a monster in this tile
-	    let random_enemy_type =
-	      EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-	    let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-	    sim.enemies.insert(p, nme);
-	    debug!("spawned a monster at {:?}", p)
-	  }
-	}
+        //spawn monsters maybe
+        for p in candidate_monster_spawn_tiles(&sim) {
+          if sim.enemies.contains_key(&p) {
+            // don't spawn a monster if there's already a monster
+            continue;
+          }
+          if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
+            //spawn a monster in this tile
+            let random_enemy_type =
+              EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+            sim.enemies.insert(p, nme);
+            debug!("spawned a monster at {:?}", p)
+          }
+        }
 
-	//do monster turn
-	for (pos, nme) in sim.enemies.iter() {
-	  debug!("a monster turn happened at {:?}", pos)
-	}
+        //do monster turn
+        for (pos, nme) in sim.enemies.iter() {
+          debug!("a monster turn happened at {:?}", pos)
+        }
       }
       
       let scale: f32 = f32::min(
@@ -414,13 +412,37 @@ fn candidate_monster_spawn_tiles(sim: &SimulationState) -> HashSet<IVec> {
   for p in sim.board.rect.iter() {
     if sim.board[p] == Tile::default()  {
       for dir in Dir4::list() {
-	let candidate_p = p + IVec::from(dir);
-	if sim.board[candidate_p] != Tile::default() {
-	  accum.insert(candidate_p);
-	}
+        let candidate_p = p + IVec::from(dir);
+        if sim.board[candidate_p] != Tile::default() {
+          accum.insert(candidate_p);
+        }
       }
     }
   }
   accum
 }
 
+fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> IVec {
+  match sim.enemies[&pos].t {
+    EnemyType::Clyde => {
+      let mut candidates: Vec<IVec> = Vec::new();
+      for d in Dir4::list() {
+        let candidate = pos + IVec::from(d);
+        if sim.board[candidate] != Tile::default() {
+          candidates.push(candidate);
+        }
+      }
+      candidates[sim.rng.next_u32() as usize % candidates.len()]
+    }
+    EnemyType::Blinky => {
+      todo!()
+    }
+    EnemyType::Pinky => {
+      todo!()
+    }
+    EnemyType::GhostWitch => {
+      // boss does not move
+      pos
+    }
+  }
+}

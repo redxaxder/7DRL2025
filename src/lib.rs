@@ -115,10 +115,10 @@ pub type EnemyId = u64;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub enum EnemyType {
-  Mook = 0,
-  Two = 1,
-  Three = 2,
-  Four = 3,
+  Clyde = 0, //moves randomly
+  Blinky = 1, //chases player
+  Pinky = 2, //avoids other enemies
+  GhostWitch = 3, //the boss
 }
 
 impl EnemyType {
@@ -132,7 +132,7 @@ impl EnemyType {
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub struct Enemy {
   id: EnemyId,
-  t: EnemyType
+  pub t: EnemyType
 }
 
 impl Enemy {
@@ -142,3 +142,22 @@ impl Enemy {
     Enemy { id, t}
   }
 }
+
+pub fn dmap(rect: IRect, focus: Position) -> Buffer2D<i16> {
+  let new_rect = rect.clone();
+  let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
+  for pos in rect.iter() {
+    dmap[pos] = pos.distance1(focus);
+  }
+  dmap
+}
+
+// pub fn nearest_dmap(rect: IRect, foci: Set<Position>) {
+//   let new_rect = rect.clone();
+//   let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
+//   for pos in rect.iter() {
+//     let mut nearest = foci[0];
+//     for f in foci {
+//     }
+//   }
+// }
