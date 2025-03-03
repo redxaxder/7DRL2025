@@ -1,4 +1,4 @@
-v0.1 "scaffold"
++ v0.1 "scaffold"
  + terrain with no special behavior
  + player moves
  + place tiles
@@ -6,7 +6,7 @@ v0.1 "scaffold"
    + flat shading for terrain
  + draw hand tile
  + supply of 30 tiles
- - placeholder art for monster/player
+ + placeholder art for monster/player
  + keyboard movement
  + keys to rotate tile
  + key to discard tile
@@ -30,15 +30,16 @@ v0.2 "iterable"
  - combat
    - restrict movement when by a monster
    - funnel system
+   - gain exp from monster kill
  - key to level up
  - key to collect nearest quest heal
- - exp system
-   - start with 3hp / 3 level exp
-   - on level up: full heal, +1 max hp, +4 level exp
+ + exp system
+   + start with 3hp / 3 level exp
+   + on level up: full heal, +1 max hp, +4 level exp
  - display
-   - hp
-   - total exp
-   - exp-to-level
+   + hp
+   + total exp
+   + exp-to-level
    + remaining tiles
    - upcoming monster turns
    - # available quest heals

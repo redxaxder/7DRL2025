@@ -81,6 +81,19 @@ impl SimulationState {
     }
   }
 
+  pub fn player_level_up(&mut self) {
+    if self.player_xp < self.player_xp_next() { return; }
+    self.player_xp -= self.player_xp_next();
+    self.player_hp_max += 1;
+    self.player_hp = self.player_hp_max;
+    self.player_level += 1;
+  }
+
+  pub fn player_xp_next(&self) -> i64 {
+    self.player_level * 3
+  }
+
+
   pub fn player_current_tile(&self) -> Tile {
     self.player_tile_transform * self.player_next_tile
   }
@@ -136,7 +149,7 @@ async fn main() {
             //debug!("tiles left: {:?}", sim.player_tiles);
           }
           Input::LevelUp => {
-            //TODO
+            sim.player_level_up()
           }
         }
 
@@ -177,13 +190,18 @@ async fn main() {
           HERO
         );
 
-        // Draw HUD
-        {
+        { // Draw HUD
+          let font_size = 100;
+          let font_scale = 1.;
+
           let margin = 15.;
           let sz = DISPLAY_GRID.tile_size;
           let hudbar_height = sz.y + 2. * margin;
           let hud_top = display.dim.y - hudbar_height;
           draw_rectangle(0.,hud_top,display.dim.x, hudbar_height, DARKGRAY);
+
+
+          // Next Tile
           let r = Rect {
             x: display.dim.x - sz.x - margin,
             y: hud_top + margin ,
@@ -192,14 +210,34 @@ async fn main() {
           };
           display.draw_tile(r, sim.player_current_tile());
 
-          let font_size = 100;
-          let font_scale = 1.;
+          // Remaining tiles
           let remaining_tiles = format!("{}", sim.player_tiles);
           let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
           let leftover = hudbar_height - textdim.height;
           let x = r.x - textdim.width - margin;
           let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-          draw_text(&remaining_tiles, x, y, 100., WHITE);
+          draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
+
+
+          let mut cursor = margin;
+          // Current/Max HP
+          let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
+          let textdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
+          let leftover = hudbar_height - textdim.height;
+          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+          draw_text(&hp, cursor, y, font_size as f32, WHITE);
+          cursor += textdim.width + margin;
+
+
+          // Current/Next XP
+          let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
+          let textdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
+          let leftover = hudbar_height - textdim.height;
+          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+          draw_text(&xp, cursor, y, font_size as f32, WHITE);
+          //cursor += textdim.width + margin;
+
+
         }
 
 
