@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <title>webrl</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        html,
+        body,
+        canvas {
+            margin: 0px;
+            padding: 0px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: absolute;
+            background: black;
+            z-index: 0;
+        }
+    </style>
+<body>
+    <canvas id="glcanvas" tabindex="1" width="1440" height="322"></canvas>
+    <script src="gl.js"></script>
+    <script>load("rl2025.wasm");</script>
+</body></html>
