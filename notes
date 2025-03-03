@@ -1,12 +1,10 @@
-
-
 v0.1 "scaffold"
  + terrain with no special behavior
  + player moves
  + place tiles
  + draw tiles
    + flat shading for terrain
- - draw hand tile
+ + draw hand tile
  + supply of 30 tiles
  - placeholder art for monster/player
  + keyboard movement
@@ -41,7 +39,7 @@ v0.2 "iterable"
    - hp
    - total exp
    - exp-to-level
-   - remaining tiles
+   + remaining tiles
    - upcoming monster turns
    - # available quest heals
  - complete region

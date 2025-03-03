@@ -5,10 +5,9 @@ use rl2025::*;
 
 
 mod tiles {
-  use crate::Terrain;
-  use crate::Tile;
-  use crate::Rng;
-  use crate::Terrain::*;
+  use crate::*;
+  use Terrain::*;
+
   const TABLE: &[(usize, [Terrain;5])] = &[
     (5, [Grass,Grass,Grass,Grass,None]),
     (5, [Town,Town,Town,Town,None]),
@@ -39,7 +38,8 @@ mod tiles {
       w -= TABLE[i].0;
       i += 1;
     }
-    Tile { contents : TABLE[i].1 }
+    let g: D8 = D8::list()[rng.next_u64() as usize % 8];
+    g * Tile { contents : TABLE[i].1 }
 
   }
 
@@ -135,11 +135,11 @@ async fn main() {
             // move player
             sim.player_pos += dir4.into();
 
-            // place tile
+            // try to place tile
             if sim.board[sim.player_pos] == Tile::default() {
               sim.board[sim.player_pos] = sim.player_current_tile();
               sim.next_tile();
-              debug!("tiles left: {:?}", sim.player_tiles);
+              //debug!("tiles left: {:?}", sim.player_tiles);
             }
           },
           Input::Rotate1 => {
@@ -150,7 +150,7 @@ async fn main() {
           }
           Input::Discard => {
             sim.next_tile();
-            debug!("tiles left: {:?}", sim.player_tiles);
+            //debug!("tiles left: {:?}", sim.player_tiles);
           }
           Input::LevelUp => {
             //TODO
@@ -169,11 +169,11 @@ async fn main() {
 
       { // Redraw the display
         set_camera(&display.render_to);
-        clear_background(DARKGRAY);
+        clear_background(DARKPURPLE);
 
 
         // DEBUG GRID VERTICES
-        let spots = IRect{x: 0, y: 0, width: 11, height: 11};
+        let spots = IRect{x: 0, y: 0, width: 20, height: 20};
         for s in spots.iter() {
           let v = Vec2::from(s) * 128.;
           draw_circle(v.x, v.y, 20., BLUE);
@@ -193,6 +193,33 @@ async fn main() {
           RED,
           HERO
         );
+
+        // Draw HUD
+        {
+          let margin = 15.;
+          let sz = DISPLAY_GRID.tile_size;
+          let hudbar_height = sz.y + 2. * margin;
+          let hud_top = display.dim.y - hudbar_height;
+          draw_rectangle(0.,hud_top,display.dim.x, hudbar_height, DARKGRAY);
+          let r = Rect {
+            x: display.dim.x - sz.x - margin,
+            y: hud_top + margin ,
+            w: sz.x,
+            h: sz.y
+          };
+          display.draw_tile(r, sim.player_current_tile());
+
+          let font_size = 100;
+          let font_scale = 1.;
+          let remaining_tiles = format!("{}", sim.player_tiles);
+          let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
+          let leftover = hudbar_height - textdim.height;
+          let x = r.x - textdim.width - margin;
+          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+          draw_text(&remaining_tiles, x, y, 100., WHITE);
+        }
+
+
       }
 
       { // Copy the display to the screen
@@ -201,8 +228,8 @@ async fn main() {
 
         draw_texture_ex(
           &display.texture,
-          (screen_width() - (scale * display.dim.x as f32)) * 0.5,
-          (screen_height() - (scale * display.dim.y as f32)) * 0.5,
+          (screen_width() - (scale * display.dim.x)) * 0.5,
+          (screen_height() - (scale * display.dim.y)) * 0.5,
           WHITE,
           DrawTextureParams {
             dest_size: Some(vec2(

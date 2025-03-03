@@ -2,14 +2,11 @@
 use crate::*;
 
 
-// why is this asymmetrical over x/y?
-// i don't know. i just shifted it instead of investigating.
-// i guess somehow related to y flip stuff
-pub const CAMERA_TETHER: IRect = IRect {x: -1, y: -2, width: 4, height: 4 };
+pub const CAMERA_TETHER: IRect = IRect {x: -1, y: -1, width: 4, height: 3 };
 
 
 pub const DISPLAY_GRID: Grid = Grid {
-  bounds: IRect{ x: -5, y: -5, width: 10, height: 10},
+  bounds: IRect{ x: -6, y: -5, width: 12, height: 10},
   tile_size: Vec2{ x: 128., y: 128. },
   tile_margin: Vec2::ZERO,
 };
