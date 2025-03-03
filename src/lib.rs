@@ -110,3 +110,19 @@ impl std::ops::Mul<Tile> for D8 {
   }
 }
 
+pub type EnemyId = u64;
+
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub enum EnemyType {
+  Mook,
+  Two,
+  Three,
+  Four,
+}
+
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub struct Enemy {
+  pub id: EnemyId,
+  pub pos: Position,
+  pub t: EnemyType
+}

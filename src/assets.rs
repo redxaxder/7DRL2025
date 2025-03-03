@@ -7,6 +7,10 @@ pub const ASSETS: Dir<'static> =  include_dir!("$CARGO_MANIFEST_DIR/assets");
 pub const LOAD_ME: &[&'static str] = &[
   "hero.png",
   "terrain_placeholder.png",
+  "nme1.png",
+  "nme2.png",
+  "nme3.png",
+  "nme4.png",
 ];
 
 
@@ -14,6 +18,17 @@ pub const HERO: &Img = &Img {
   path: "hero.png",
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };
+
+pub const fn enemy(nme: EnemyType) -> Img {
+  let rect = Rect{x: 0., y: 0., w: 128., h: 128. };
+  let path = match nme {
+    EnemyType::Mook  => "nme1.png",
+    EnemyType::Two   => "nme2.png",
+    EnemyType::Three => "nme3.png",
+    EnemyType::Four  => "nme4.png",
+  };
+  Img { rect, path }
+}
 
 fn terrain_path(terrain: Terrain) -> &'static str {
   // TODO fill in filepaths for real terrain

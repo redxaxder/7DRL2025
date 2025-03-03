@@ -93,23 +93,6 @@ impl SimulationState {
 
 }
 
-type EnemyId = u64;
-
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
-enum EnemyType {
-  One,
-  Two,
-  Tree,
-}
-
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
-struct Enemy {
-  id: EnemyId,
-  pos: Position,
-  t: EnemyType
-}
-
-
 #[macroquad::main("7drl")]
 async fn main() {
     debug!("This is a debug message");
