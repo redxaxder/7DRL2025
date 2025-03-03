@@ -1,5 +1,4 @@
 + draw tiles from data (placeholders)
-- insert some starting tiles
 + draw player
 + get input
-- evolve sim after input
++ evolve sim after input

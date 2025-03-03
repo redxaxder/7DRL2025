@@ -17,8 +17,13 @@ mod tiles {
   use crate::Rng;
   use crate::Terrain::*;
   const TABLE: &[(usize, [Terrain;5])] = &[
-    (5, [Grass,Grass,Grass,Grass,None])
-    ];
+    (5, [Grass,Grass,Grass,Grass,None]),
+    (5, [Town,Town,Town,Town,None]),
+    (5, [Forest,Forest,Forest,Forest,None]),
+    (5, [River,River,Town,Town,None]),
+    (5, [Road,Forest,Road,Grass,Road]),
+    (5, [Forest,Grass,Grass,Town,None]),
+  ];
 
   const fn weight() -> usize {
     let mut r = 0;
@@ -130,14 +135,12 @@ async fn main() {
     let mut sim = SimulationState::new();
     sim.next_tile();
 
+
     let mut resources = Resources::new(ASSETS);
     for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
 
-
-    let p = sim.player_pos;
-
     let display_dim: Vec2 = DISPLAY_GRID.dim();
-    let display = Display::new(resources, display_dim);
+    let mut display = Display::new(resources, display_dim);
 
     loop {
       if let Some(input) = get_input() {
@@ -167,6 +170,8 @@ async fn main() {
         }
 
         debug!("{:?}", sim.player_pos);
+        let camera_offset: IVec = display.camera_focus - sim.player_pos;
+        display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
       }
       let scale: f32 = f32::min(
@@ -183,11 +188,62 @@ async fn main() {
         let spots = IRect{x: 0, y: 0, width: 11, height: 11};
         for s in spots.iter() {
           let v = Vec2::from(s) * 128.;
-          draw_circle(v.x, v.y, 30., BLUE);
+          draw_circle(v.x, v.y, 20., BLUE);
         }
 
         // Draw terrain
-        // TODO
+        for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+          let p = sim.player_pos + offset;
+          let tile = sim.board[p];
+          for &terrain in Terrain::DRAW_ORDER {
+            // is there a pair of adjacent sides of this terrain type?
+            let mut adjacent = false;
+            // is there a pair of opposite sides of this terrain type?
+            let mut opposite = false;
+            for d in Dir4::list() {
+              if tile.contents[d.index()] != terrain {
+                continue;
+              }
+              let n = d.rotate4(1);
+              if tile.contents[n.index()] == terrain {
+                adjacent = true;
+              }
+              let o = d.opposite();
+              if tile.contents[o.index()] == terrain {
+                opposite = true;
+              }
+            }
+
+            if adjacent {
+              // any adjacency implies triangle
+              for d in Dir4::list() {
+                if tile.contents[d.index()] != terrain { continue; }
+                let img = terrain_triangle(terrain, d);
+                display.draw_tile(p.into(), terrain.color(), &img);
+              }
+            } else if opposite && tile.contents[4] == terrain {
+              // no adjacency + opposite + center implies bridge
+              for d in Dir4::list() {
+                if tile.contents[d.index()] != terrain { continue; }
+                let img = terrain_bridge(terrain, d);
+                display.draw_tile(p.into(), terrain.color(), &img);
+                break; // a single bridge image covers both directions
+              }
+            } else {
+              // fallthrough is wedge
+              for d in Dir4::list() {
+                if tile.contents[d.index()] != terrain { continue; }
+                let img = terrain_wedge(terrain, d);
+                display.draw_tile(p.into(), terrain.color(), &img);
+              }
+
+            }
+            // TODO:
+            // draw special center item if present
+            // eg quest
+
+          }
+        }
 
         // Draw player
         display.draw_tile(

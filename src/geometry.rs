@@ -48,7 +48,7 @@ impl IRect {
       && position.y < self.y + self.height
   }
 
-  pub fn clamp(&self, position: Position) -> Position {
+  pub fn clamp_pos(&self, position: Position) -> Position {
     IVec {
       x: position.x.clamp(self.x, self.x + self.width - 1),
       y: position.y.clamp(self.y, self.y + self.height - 1),

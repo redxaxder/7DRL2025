@@ -2,6 +2,12 @@
 use crate::*;
 
 
+// why is this asymmetrical over x/y?
+// i don't know. i just shifted it instead of investigating.
+// i guess somehow related to y flip stuff
+pub const CAMERA_TETHER: IRect = IRect {x: -1, y: -2, width: 4, height: 4 };
+
+
 pub const DISPLAY_GRID: Grid = Grid {
   bounds: IRect{ x: -5, y: -5, width: 10, height: 10},
   tile_size: Vec2{ x: 128., y: 128. },
@@ -31,6 +37,7 @@ impl Grid {
 
 
 pub struct Display {
+  pub camera_focus: IVec,
   pub resources: Resources,
   pub render_to: Camera2D,
   pub texture: Texture2D,
@@ -50,15 +57,16 @@ impl Display {
       x
     };
     let texture = buffer.texture.clone();
+    let camera_focus = IVec::ZERO;
 
-    Self{ resources, render_to, texture, dim, }
+    Self{ camera_focus, resources, render_to, texture, dim, }
   }
   pub fn draw_tile(&self,
     position: Vec2,
     color: Color,
     image: &Img,
   ) {
-    let p = DISPLAY_GRID.to_screen(position);
+    let p = DISPLAY_GRID.to_screen(position - Vec2::from(self.camera_focus));
     self.resources.draw_image(
       p.x,
       p.y,

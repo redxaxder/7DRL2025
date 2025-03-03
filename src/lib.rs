@@ -41,10 +41,43 @@ pub use crate::assets::*;
 pub enum Terrain {
   None,
   Grass,
+  Town,
+  River,
+  Road,
+  Forest,
   //Cave,
-  //Town,
-  //River,
-  //Road,
-  //Forest,
   //Quest,
 }
+impl Terrain {
+  pub const DRAW_ORDER: &[Self] = &[
+  Self::Grass,
+  Self::Town,
+  Self::River,
+  Self::Road,
+  Self::Forest,
+  //Self::Cave,
+  //Self::Quest,
+  ];
+
+  pub fn index(self) -> usize {
+    unsafe {
+      std::mem::transmute::<Self, u8>(self) as usize
+    }
+  }
+
+  pub fn color(self) -> Color {
+    TERRAIN_COLOR[self.index()]
+  }
+}
+
+
+const TERRAIN_COLOR: &[Color] = &[
+  BLACK,
+  GREEN,
+  ORANGE,
+  BLUE,
+  WHITE,
+  DARKGREEN,
+  RED,
+  YELLOW,
+];
