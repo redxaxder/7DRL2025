@@ -48,6 +48,8 @@ impl Resources {
           ..Default::default()
         }
       );
+    } else {
+      warn!("missing source image");
     }
   }
 }

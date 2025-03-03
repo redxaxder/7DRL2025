@@ -3,17 +3,22 @@ use include_dir::{Dir, include_dir};
 
 pub const ASSETS: Dir<'static> =  include_dir!("$CARGO_MANIFEST_DIR/assets");
 
+
 pub const LOAD_ME: &[&'static str] = &[
-  PLACEHOLDER
+  "hero.png",
+  "terrain_placeholder.png",
 ];
 
-pub const PLACEHOLDER: &'static str = "placeholder.png";
 
+pub const HERO: &Img = &Img {
+  path: "hero.png",
+  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
+};
 
 fn terrain_path(terrain: Terrain) -> &'static str {
   // TODO fill in filepaths for real terrain
   match terrain {
-    _ => PLACEHOLDER,
+    _ =>  "terrain_placeholder.png",
   }
 }
 

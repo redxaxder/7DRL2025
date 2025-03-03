@@ -1,0 +1,2 @@
+fswatch -o -m poll_monitor src | while read -r x; do cargo check; done
+

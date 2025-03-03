@@ -4,13 +4,23 @@ use Dir4::*;
 
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
 pub enum Input {
-  Pass,
-  InputDir(Dir4),
-  InputAction(u8),
-  Confirm,
-  Reset,
-  Cancel,
+  Dir(Dir4),
+  Rotate1,
+  Rotate2,
+  Discard,
+  LevelUp,
 }
+
+static mut INPUT_MAP: &mut [(KeyCode, Input)] = &mut [
+  (KeyCode::W, Input::Dir(Up)),
+  (KeyCode::A, Input::Dir(Left)),
+  (KeyCode::S, Input::Dir(Down)),
+  (KeyCode::D, Input::Dir(Right)),
+  (KeyCode::Q, Input::Rotate1),
+  (KeyCode::E, Input::Rotate2),
+  (KeyCode::Z, Input::LevelUp),
+  (KeyCode::X, Input::Discard),
+];
 
 pub fn get_input() -> Option<Input> {
   let map = input_map();
@@ -22,6 +32,7 @@ pub fn get_input() -> Option<Input> {
   None
 }
 
+static mut INPUT_MAP_SORTED:bool = false;
 pub fn input_map() -> &'static [(KeyCode, Input)] {
   unsafe{
     if !INPUT_MAP_SORTED {
@@ -32,22 +43,3 @@ pub fn input_map() -> &'static [(KeyCode, Input)] {
       .as_ref().unwrap()
   }
 }
-
-static mut INPUT_MAP_SORTED:bool = false;
-static mut INPUT_MAP: [(KeyCode, Input); 12] = [
-  (KeyCode::Key1, Input::InputAction(0)),
-  (KeyCode::Key2, Input::InputAction(1)),
-  (KeyCode::Key3, Input::InputAction(2)),
-  (KeyCode::Key3, Input::InputAction(3)),
-  (KeyCode::W, Input::InputDir(Up)),
-  (KeyCode::A, Input::InputDir(Left)),
-  (KeyCode::S, Input::InputDir(Down)),
-  (KeyCode::D, Input::InputDir(Right)),
-  (KeyCode::X, Input::Pass),
-  (KeyCode::E, Input::Confirm),
-  (KeyCode::Q, Input::Reset),
-  (KeyCode::Z, Input::Cancel),
-];
-
-
-

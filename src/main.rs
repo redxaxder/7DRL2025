@@ -4,7 +4,6 @@ use rl2025::*;
 
 
 
-
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 struct Tile {
   // right up left down (matching dir4.index)
@@ -48,7 +47,6 @@ mod tiles {
 
 }
 
-
 impl Default for Tile {
   fn default() -> Self {
     Tile {
@@ -56,7 +54,6 @@ impl Default for Tile {
     }
   }
 }
-
 
 impl std::ops::Mul<Tile> for D8 {
   type Output = Tile;
@@ -122,12 +119,6 @@ struct Enemy {
   t: EnemyType
 }
 
-const DISPLAY_GRID: Grid = Grid {
-  tile_margin: Vec2::ZERO,
-  tile_size: Vec2{x: 128., y: 128. },
-  bounds: IRect{ x: -10, y: -10, width: 20, height: 10 },
-};
-
 
 #[macroquad::main("7drl")]
 async fn main() {
@@ -136,30 +127,100 @@ async fn main() {
     error!("and errors, the red ones!");
     warn!("Or warnings, the yellow ones.");
 
-    let mut game = SimulationState::new();
+    let mut sim = SimulationState::new();
+    sim.next_tile();
 
     let mut resources = Resources::new(ASSETS);
-    for path in LOAD_ME {
-      resources.load_texture(path, FilterMode::Nearest);
-    }
+    for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
 
 
-    let display = Display::new(resources, DISPLAY_GRID.dim());
+    let p = sim.player_pos;
 
-
-
-    game.next_tile();
-
-    let example_tile: Img = terrain_bridge(Terrain::None, Dir4::Right);
+    let display_dim: Vec2 = DISPLAY_GRID.dim();
+    let display = Display::new(resources, display_dim);
 
     loop {
+      if let Some(input) = get_input() {
+        debug!("{:?}", input);
+        // get input and advance state
+        match input {
+          Input::Dir(dir4) => {
+            // move player
+            sim.player_pos += dir4.into();
+
+            // place tile
+            sim.board[sim.player_pos] = sim.player_next_tile;
+            sim.next_tile()
+          },
+          Input::Rotate1 => {
+            // TODO
+          }
+          Input::Rotate2 => {
+            //TODO
+          }
+          Input::Discard => {
+            //TODO
+          }
+          Input::LevelUp => {
+            //TODO
+          }
+        }
+
+        debug!("{:?}", sim.player_pos);
+
+      }
+      let scale: f32 = f32::min(
+        screen_width() / display.dim.x as f32,
+        screen_height() / display.dim.y as f32,
+      );
+
+      { // Redraw the display
+        set_camera(&display.render_to);
+        clear_background(DARKGRAY);
+
+
+        // DEBUG GRID VERTICES
+        let spots = IRect{x: 0, y: 0, width: 11, height: 11};
+        for s in spots.iter() {
+          let v = Vec2::from(s) * 128.;
+          draw_circle(v.x, v.y, 30., BLUE);
+        }
+
+        // Draw terrain
+        // TODO
+
+        // Draw player
+        display.draw_tile(
+          sim.player_pos.into(),
+          RED,
+          HERO
+        );
+      }
+
+      { // Copy the display to the screen
+        set_default_camera();
         clear_background(BLACK);
-        display.draw_tile(Vec2::ZERO, &DISPLAY_GRID, RED, &example_tile);
+
+        draw_texture_ex(
+          &display.texture,
+          (screen_width() - (scale * display.dim.x as f32)) * 0.5,
+          (screen_height() - (scale * display.dim.y as f32)) * 0.5,
+          WHITE,
+          DrawTextureParams {
+            dest_size: Some(vec2(
+                           scale * display.dim.x as f32,
+                           scale * display.dim.y as f32,
+                       )),
+                       flip_y: true,
+                       ..Default::default()
+          },
+        );
+      }
 
 
 
 
-        next_frame().await
+      next_frame().await
     }
 }
 

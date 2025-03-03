@@ -2,6 +2,12 @@
 use crate::*;
 
 
+pub const DISPLAY_GRID: Grid = Grid {
+  bounds: IRect{ x: -5, y: -5, width: 10, height: 10},
+  tile_size: Vec2{ x: 128., y: 128. },
+  tile_margin: Vec2::ZERO,
+};
+
 pub struct Grid {
   pub bounds: IRect,
   pub tile_size: Vec2,
@@ -16,7 +22,7 @@ impl Grid {
     let full_tile = self.tile_size +(2. * self.tile_margin);
     let v: Vec2 = (
       u.x - (self.bounds.x as f32),
-      (self.bounds.height as f32 - u.y) - (self.bounds.y as f32),
+      (self.bounds.height as f32 - u.y) + (self.bounds.y as f32),
     ).into();
     v * full_tile
   }
@@ -31,6 +37,7 @@ pub struct Display {
   pub dim: Vec2,
 }
 
+
 impl Display {
   pub fn new(resources: Resources, dim: Vec2) -> Self {
     let buffer = render_target(dim.x as u32, dim.y as u32);
@@ -43,53 +50,25 @@ impl Display {
       x
     };
     let texture = buffer.texture.clone();
-    Display {
-      resources,
-      render_to,
-      texture,
-      dim,
-    }
-  }
 
-  pub fn dim(&self) -> Vec2 {
-    self.dim
+    Self{ resources, render_to, texture, dim, }
   }
-
   pub fn draw_tile(&self,
-    position: ScreenCoords,
-    grid: &Grid,
+    position: Vec2,
     color: Color,
     image: &Img,
-    ) {
+  ) {
+    let p = DISPLAY_GRID.to_screen(position);
     self.resources.draw_image(
-      position.x + grid.tile_margin.x,
-      position.y + grid.tile_margin.y,
-      grid.tile_size.x,
-      grid.tile_size.y,
+      p.x,
+      p.y,
+      DISPLAY_GRID.tile_size.x,
+      DISPLAY_GRID.tile_size.y,
       0.,
       color,
       image,
     );
   }
-
-  pub fn draw_tile_rotated(&self,
-    position: ScreenCoords,
-    grid: &Grid,
-    rotation: f32,
-    color: Color,
-    image: &Img,
-    ) {
-    self.resources.draw_image(
-      position.x + grid.tile_margin.x,
-      position.y + grid.tile_margin.y,
-      grid.tile_size.x,
-      grid.tile_size.y,
-      rotation,
-      color,
-      image,
-    );
-  }
-
 }
 
 
