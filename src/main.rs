@@ -60,6 +60,9 @@ struct SimulationState {
   regions: Buffer2D<[RegionId;4]>,
   region_sizes: Map<RegionId, usize>,
   next_region_id: RegionId,
+
+  void_frontier: Set<Position>,
+
   enemies: Map<Position, Enemy>,
   rng: Rng,
 }
@@ -84,6 +87,7 @@ impl SimulationState {
       enemies: Map::new(),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
+      void_frontier: Set::new(),
       region_sizes: Map::new(),
       rng: from_global_rng(),
     }
@@ -167,6 +171,14 @@ impl SimulationState {
       if self.regions[position][d.index()] == RegionId::MAX {
         self.regions[position][d.index()] = self.next_region_id;
         self.next_region_id += 1;
+      }
+    }
+    let wp = self.board.rect.wrap(position);
+    self.void_frontier.remove(&wp);
+    for d in Dir4::list() {
+      let n = self.board.rect.wrap(wp + d.into());
+      if self.board[n] == Tile::default() {
+        self.void_frontier.insert(n);
       }
     }
     // TODO: perfect tile bonus
