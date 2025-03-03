@@ -143,6 +143,8 @@ async fn main() {
     warn!("Or warnings, the yellow ones.");
 
     let mut game = SimulationState::new();
+
+    let mut resources = Resources::new(ASSETS);
     game.next_tile();
 
 
