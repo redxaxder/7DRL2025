@@ -33,6 +33,19 @@ impl Grid {
     v * full_tile
   }
 
+
+  pub fn rect(&self, u: impl Into<Vec2>) -> Rect {
+    let p = DISPLAY_GRID.to_screen(u.into());
+    Rect {
+      x: p.x,
+      y: p.y,
+      w: self.tile_size.x,
+      h: self.tile_size.y,
+    }
+  }
+
+
+
 }
 
 
@@ -61,24 +74,81 @@ impl Display {
 
     Self{ camera_focus, resources, render_to, texture, dim, }
   }
-  pub fn draw_grid(&self,
-    position: Vec2,
+
+  pub fn draw_img(&self,
+    rect: Rect,
     color: Color,
     image: &Img,
   ) {
-    let p = DISPLAY_GRID.to_screen(position - Vec2::from(self.camera_focus));
     self.resources.draw_image(
-      p.x,
-      p.y,
-      DISPLAY_GRID.tile_size.x,
-      DISPLAY_GRID.tile_size.y,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
       0.,
       color,
       image,
     );
   }
-}
 
+  pub fn draw_grid(&self,
+    position: Vec2,
+    color: Color,
+    image: &Img,
+  ) {
+    let rect = DISPLAY_GRID.rect(position - Vec2::from(self.camera_focus));
+    self.draw_img(rect, color, image);
+  }
+
+  pub fn draw_tile(&self, rect: Rect, tile: Tile) {
+    for &terrain in Terrain::DRAW_ORDER {
+      // is there a pair of adjacent sides of this terrain type?
+      let mut adjacent = false;
+      // is there a pair of opposite sides of this terrain type?
+      let mut opposite = false;
+      for d in Dir4::list() {
+        if tile.contents[d.index()] != terrain {
+          continue;
+        }
+        let n = d.rotate4(1);
+        if tile.contents[n.index()] == terrain {
+          adjacent = true;
+        }
+        let o = d.opposite();
+        if tile.contents[o.index()] == terrain {
+          opposite = true;
+        }
+      }
+      if adjacent {
+        // any adjacency implies triangle
+        for d in Dir4::list() {
+          if tile.contents[d.index()] != terrain { continue; }
+          let img = terrain_triangle(terrain, d);
+          self.draw_img(rect, terrain.color(), &img);
+        }
+      } else if opposite && tile.contents[4] == terrain {
+        // no adjacency + opposite + center implies bridge
+        for d in Dir4::list() {
+          if tile.contents[d.index()] != terrain { continue; }
+          let img = terrain_bridge(terrain, d);
+          self.draw_img(rect, terrain.color(), &img);
+          break; // a single bridge image covers both directions
+        }
+      } else {
+        // fallthrough is wedge
+        for d in Dir4::list() {
+          if tile.contents[d.index()] != terrain { continue; }
+          let img = terrain_wedge(terrain, d);
+          self.draw_img(rect, terrain.color(), &img);
+        }
+
+      }
+      // TODO:
+      // draw special center item if present
+      // eg quest
+    }
+  }
+}
 
 pub type ScreenCoords = Vec2;
 

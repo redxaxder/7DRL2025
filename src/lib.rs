@@ -81,3 +81,32 @@ const TERRAIN_COLOR: &[Color] = &[
   RED,
   YELLOW,
 ];
+
+
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub struct Tile {
+  // right up left down (matching dir4.index)
+  // followed by center in index 4
+  pub contents: [Terrain; 5]
+}
+
+impl Default for Tile {
+  fn default() -> Self {
+    Tile {
+      contents: [Terrain::None;5]
+    }
+  }
+}
+
+impl std::ops::Mul<Tile> for D8 {
+  type Output = Tile;
+  fn mul(self, rhs: Tile) -> Self::Output {
+    let mut contents = rhs.contents.clone();
+    for d in Dir4::list() {
+      let d2 = self * d;
+      contents[d2.index()] = rhs.contents[d.index()];
+    }
+    Tile {contents}
+  }
+}
+

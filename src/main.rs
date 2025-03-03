@@ -4,13 +4,6 @@ use rl2025::*;
 
 
 
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
-struct Tile {
-  // right up left down (matching dir4.index)
-  // followed by center in index 4
-  contents: [Terrain; 5]
-}
-
 mod tiles {
   use crate::Terrain;
   use crate::Tile;
@@ -50,26 +43,6 @@ mod tiles {
 
   }
 
-}
-
-impl Default for Tile {
-  fn default() -> Self {
-    Tile {
-      contents: [Terrain::None;5]
-    }
-  }
-}
-
-impl std::ops::Mul<Tile> for D8 {
-  type Output = Tile;
-  fn mul(self, rhs: Tile) -> Self::Output {
-    let mut contents = rhs.contents.clone();
-    for d in Dir4::list() {
-      let d2 = self * d;
-      contents[d2.index()] = rhs.contents[d.index()];
-    }
-    Tile {contents}
-  }
 }
 
 #[derive(Clone)]
@@ -210,54 +183,8 @@ async fn main() {
         for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
           let p = sim.player_pos + offset;
           let tile = sim.board[p];
-          for &terrain in Terrain::DRAW_ORDER {
-            // is there a pair of adjacent sides of this terrain type?
-            let mut adjacent = false;
-            // is there a pair of opposite sides of this terrain type?
-            let mut opposite = false;
-            for d in Dir4::list() {
-              if tile.contents[d.index()] != terrain {
-                continue;
-              }
-              let n = d.rotate4(1);
-              if tile.contents[n.index()] == terrain {
-                adjacent = true;
-              }
-              let o = d.opposite();
-              if tile.contents[o.index()] == terrain {
-                opposite = true;
-              }
-            }
-
-            if adjacent {
-              // any adjacency implies triangle
-              for d in Dir4::list() {
-                if tile.contents[d.index()] != terrain { continue; }
-                let img = terrain_triangle(terrain, d);
-                display.draw_grid(p.into(), terrain.color(), &img);
-              }
-            } else if opposite && tile.contents[4] == terrain {
-              // no adjacency + opposite + center implies bridge
-              for d in Dir4::list() {
-                if tile.contents[d.index()] != terrain { continue; }
-                let img = terrain_bridge(terrain, d);
-                display.draw_grid(p.into(), terrain.color(), &img);
-                break; // a single bridge image covers both directions
-              }
-            } else {
-              // fallthrough is wedge
-              for d in Dir4::list() {
-                if tile.contents[d.index()] != terrain { continue; }
-                let img = terrain_wedge(terrain, d);
-                display.draw_grid(p.into(), terrain.color(), &img);
-              }
-
-            }
-            // TODO:
-            // draw special center item if present
-            // eg quest
-
-          }
+          let r = DISPLAY_GRID.rect(p - display.camera_focus);
+          display.draw_tile(r, tile);
         }
 
         // Draw player
