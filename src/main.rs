@@ -45,7 +45,7 @@ mod tiles {
 
 type RegionId = u16;
 const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
-const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
+const MONSTER_SPAWN_CHANCE: u64 = 2; // units are percent
 const REGION_REWARD_THRESHOLD: usize = 4;
 
 #[derive(Clone)]
@@ -333,8 +333,12 @@ impl SimulationState {
     self.nearest_enemy_dmap.fill(i16::MAX);
     let mut d = 0;
     let mut frontier = Vec::new();
-    for k in self.enemies.keys() {
-      frontier.push(*k);
+    for (pos, nme) in self.enemies.iter() {
+      if nme.t == EnemyType::Pinky {
+        // pinkies shouldn't hide from each other
+        continue;
+      }
+      frontier.push(*pos);
     }
     let mut next_frontier = Vec::new();
 
@@ -674,8 +678,8 @@ async fn main() {
       }
 
       { // draw dmap2
-        //let dmap = &sim.nearest_enemy_dmap;
-        //for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+        // let dmap = &sim.nearest_enemy_dmap;
+        // for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
         //  let p = sim.player_pos + offset;
         //  let dmapvalue = dmap[p];
         //  if dmapvalue > 20 {
@@ -696,7 +700,7 @@ async fn main() {
         //  let px = r.x + (0.5 * leftoverx);
         //  let py = r.y + (0.5 * leftovery) + textdim.offset_y + 30.;
         //  draw_text(&number, px, py, font_size as f32, WHITE);
-        //}
+        // }
       }
 
 
@@ -754,24 +758,25 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
         let mut min: i16 = i16::max_value();
         for d in Dir4::list() {
           let c = pos + IVec::from(d);
-          if sim.player_dmap[c] < min {
+          if sim.player_dmap[c] < min && sim.board[c] != Tile::default() {
             min = sim.player_dmap[c];
             min_dir = d;
           }
         }
-        candidates.push(pos + IVec::from(min_dir));
+        candidates.push(pos + min_dir.into());
       }
       EnemyType::Pinky => {
         let mut max_dir: Dir4 = Dir4::Right;
         let mut max: i16 = 0;
         for d in Dir4::list() {
           let c = pos + IVec::from(d);
-          if sim.nearest_enemy_dmap[c] > max {
+          if sim.nearest_enemy_dmap[c] > max && sim.board[c] != Tile::default() {
             max = sim.nearest_enemy_dmap[c];
             max_dir = d;
           }
         }
-        candidates.push(pos + IVec::from(max_dir));
+        candidates.push(pos + max_dir.into());
+        // debug!("Pinky candidate {:?}", pos + max_dir.into());
       }
       EnemyType::GhostWitch => {
         // boss does not move

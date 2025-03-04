@@ -1,7 +1,9 @@
 - fewer enemies
 - enemies dont rudely step on player's toes
-- fix pinky
-- pinkies try to hide from themselves
+- enemy combat
+- 
+
++ pinkies try to hide from themselves
 + monsters camp in the void and should be forced into non-void
 - you can move onto a non-void tile containing a newly spawned monster
   - this should just unspawn the monster
