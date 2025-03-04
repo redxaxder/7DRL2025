@@ -451,6 +451,7 @@ async fn main() {
             // enemy is defeated
             // player takes a hit
             sim.player_hp -= 1;
+            sim.player_xp += 1;
             // enemies behind move up
             let mut vacated = target;
             let mut dist = 0;
