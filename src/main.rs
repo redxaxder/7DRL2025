@@ -56,7 +56,7 @@ impl SimulationState {
       void_frontier: Set::new(),
       region_sizes: Map::new(),
       region_start: Map::new(),
-      rng: from_global_rng(),
+      rng: from_current_time(),
       player_dmap: Buffer2D::new(0, BOARD_RECT),
       nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
     }

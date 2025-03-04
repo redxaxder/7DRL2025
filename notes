@@ -32,7 +32,6 @@ v0.2 "iterable"
    + funnel system
    + gain exp from monster kill
  + key to level up
- - key to collect nearest quest heal
  + exp system
    + start with 3hp / 3 level exp
    + on level up: full heal, +1 max hp, +4 level exp
@@ -41,7 +40,7 @@ v0.2 "iterable"
    + total exp
    + exp-to-level
    + remaining tiles
-   - upcoming monster turns
+   + upcoming monster turns
    - # available quest heals
  + complete region
    + get size - 4 exp

@@ -10,6 +10,12 @@ pub fn from_global_rng() -> Rng {
   )
 }
 
+pub fn from_current_time() -> Rng {
+  let now:f64 = macroquad::miniquad::date::now();
+  let state: u64 = unsafe { std::mem::transmute(now) };
+  Rng::new(state, 0)
+}
+
 // Pcg32 copied from rand_pcg
 // but without the extra deps i don't need and don't want to wrangle build for
 #[derive(Clone)]
