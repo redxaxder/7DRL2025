@@ -407,7 +407,10 @@ async fn main() {
         if sim.board[adj] == Tile::default() { continue; }
         in_combat = in_combat || sim.enemies.get(adj).is_some();
       }
-      if in_combat { // do combat
+
+      // do combat
+
+      if in_combat {
         let crowd: Map<Position, u8> = {
           // calculates the crowd of enemies we're trying to fight
           // each occupied position is put into the map, along with
@@ -505,6 +508,10 @@ async fn main() {
           sim.place_tile(sim.player_pos, sim.player_current_tile());
           sim.next_tile();
           tile_placed = true;
+          if sim.enemies.contains_key(sim.player_pos) {
+            // new tiles smoosh monsters
+            sim.enemies.remove(sim.player_pos);
+          }
           //debug!("tiles left: {:?}", sim.player_tiles);
           sim.update_region_sizes();
 
