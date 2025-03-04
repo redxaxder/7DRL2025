@@ -26,7 +26,7 @@ v0.2 "iterable"
      - there must be at least one monster type for which there is no ongoing quest
      - there must be at least 1 of such a monster
    - on completion, get 5 tiles + quest heal
- - perfect tile bonus (+1 tile)
+ + perfect tile bonus (+1 tile)
  - combat
    - restrict movement when by a monster
    - funnel system
@@ -43,9 +43,9 @@ v0.2 "iterable"
    + remaining tiles
    - upcoming monster turns
    - # available quest heals
- - complete region
-   - get size - 5 exp
-   - get 1 tile
+ + complete region
+   + get size - 4 exp
+   + get 1 tile
  - stepping on quest heal consumes 
    + (placeholder art)
  - terrain effects:

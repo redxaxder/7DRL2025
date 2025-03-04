@@ -46,6 +46,7 @@ mod tiles {
 type RegionId = u16;
 const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
 const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
+const REGION_REWARD_THRESHOLD: usize = 4;
 
 #[derive(Clone)]
 struct SimulationState {
@@ -61,6 +62,8 @@ struct SimulationState {
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
   region_sizes: Map<RegionId, usize>,
+  // the subposition of the first tile in this region
+  region_start: Map<RegionId, Subposition>,
   next_region_id: RegionId,
   // regions that border void
   open_regions: Set<RegionId>,
@@ -91,6 +94,7 @@ impl SimulationState {
       open_regions: Set::new(),
       void_frontier: Set::new(),
       region_sizes: Map::new(),
+      region_start: Map::new(),
       rng: from_global_rng(),
       player_dmap: Buffer2D::new(0, BOARD_RECT),
       nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
@@ -111,7 +115,6 @@ impl SimulationState {
 
   fn fill_region_ids(&mut self, position: Position, dir: Dir4) {
     let mut frontier: Vec<(Position, Dir4)> = vec!( (position, dir));
-
     while let Some((p,d)) = frontier.pop() {
       let rid = self.regions[p][d.index()];
       let t0 = self.board[p].contents[d.index()];
@@ -160,7 +163,14 @@ impl SimulationState {
       }
 
       if min_rid < rid {
+        // if two compatible regions with distinct rids are adjacent,
+        // the one with the larger id is merged into the smaller
         self.regions[p][d.index()] = min_rid;
+        // we remove the larger from the rid start tracker
+        if self.region_start.remove(&rid).is_some() {
+          debug!("merged region {}", rid);
+        }
+
         //if rid < RegionId::MAX {
         //  debug!("update cell regionid {} -> {}", rid, min_rid);
         //}
@@ -176,15 +186,13 @@ impl SimulationState {
       for d in Dir4::list() {
         self.fill_region_ids(position, d);
       }
-      for d in Dir4::list() {
-        self.fill_region_ids(position, d);
-      }
 
       // new regions
       for d in Dir4::list() {
         self.fill_region_ids(position,d);
         if self.regions[position][d.index()] == RegionId::MAX {
           self.regions[position][d.index()] = self.next_region_id;
+          self.region_start.insert(self.next_region_id, (position, d));
           self.next_region_id += 1;
         }
       }
@@ -246,6 +254,7 @@ impl SimulationState {
       v.clear();
       for d in Dir4::list() {
         let rid = self.regions[p][d.index()];
+        let terrain = self.board[p].contents[d.index()];
         if rid == RegionId::MAX { continue; }
         v.push(rid);
       }
@@ -261,6 +270,22 @@ impl SimulationState {
 
   pub fn reward_completed_region(&mut self, rid: RegionId) {
     //TODO: actual reward
+
+    let (position, dir) = self.region_start[&rid];
+    let terrain = self.board[position].contents[dir.index()];
+    let size = self.region_sizes[&rid];
+    if terrain == Terrain::River {
+      // TODO: special case river rewards
+    } else {
+      let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
+      if xp_reward > 0 {
+        // TODO: UI hints
+        self.player_xp += xp_reward as i64;
+        self.player_tiles += 1;
+        debug!("region reward: {} xp 1 tile", xp_reward);
+      }
+
+    }
   }
 
   pub fn player_current_tile(&self) -> Tile {

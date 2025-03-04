@@ -232,6 +232,7 @@ impl TryFrom<Dir8> for Dir4 {
 
 // Position{{{
 pub type Position = IVec;
+pub type Subposition = (Position, Dir4);
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Hash, Ord, PartialOrd)]
 pub struct IVec {
