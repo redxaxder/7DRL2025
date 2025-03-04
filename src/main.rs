@@ -385,49 +385,12 @@ async fn main() {
   let mut display = Display::new(resources, display_dim);
 
   loop {
-    let mut tile_placed: bool = false;
-    let mut player_moved: bool = false;
+    let mut inputdir: Option<Dir4> = None;
     if let Some(input) = get_input() {
-      //debug!("{:?}", input);
-      // get input and advance state
       match input {
-        Input::Dir(dir4) => {
-          // move player
-          sim.player_pos += dir4.into();
-          player_moved = true;
-          debug!("player: {:?}", sim.player_pos);
-
-          // try to place tile
-          if sim.board[sim.player_pos] == Tile::default() {
-            sim.place_tile(sim.player_pos, sim.player_current_tile());
-            sim.next_tile();
-            tile_placed = true;
-            //debug!("tiles left: {:?}", sim.player_tiles);
-            sim.update_region_sizes();
-
-            // check for completed regions
-            // a region was just completed if
-            // 1) its id appears on either this tile or its subposition neighbors
-            // 2) its id *does not* appear in open regions
-            let mut just_completed = Set::new();
-            for d in Dir4::list() {
-              let p2 = sim.player_pos + d.into();
-              let d2 = d.opposite();
-              for regionid in [
-                sim.regions[sim.player_pos][d.index()],
-                sim.regions[p2][d2.index()]
-              ] {
-                if regionid == RegionId::MAX { continue; }
-                if !sim.open_regions.contains(&regionid) {
-                  just_completed.insert(regionid);
-                }
-              }
-            }
-            for &regionid in just_completed.iter() {
-              sim.reward_completed_region(regionid);
-            }
-          }
-        },
+        Input::Dir(dir) => {
+          inputdir = Some(dir)
+        }
         Input::Rotate1 => {
           sim.player_tile_transform = D8::R1 * sim.player_tile_transform;
         }
@@ -442,41 +405,151 @@ async fn main() {
           sim.player_level_up()
         }
       }
+    }
 
-      //debug!("{:?}", sim.player_pos);
-      let camera_offset: IVec = display.camera_focus - sim.player_pos;
-      display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
-
-      //monsters
-      if tile_placed || (player_moved && sim.player_tiles < 1) {
-
-        sim.update_player_dmap();
-        sim.update_nearest_dmap();
-
-
-        //do monster turn
-        for (pos, _) in sim.enemies.clone().iter() {
-          let maybe_pos = enemy_pathfind(&mut sim, *pos);
-          if let Some(new_pos) = maybe_pos {
-            sim.move_enemy(*pos, new_pos);
+    let mut tile_placed: bool = false;
+    let mut player_moved: bool = false;
+    let mut in_combat = false;
+    let mut needs_road = false;
+    if let Some(playermove) = inputdir  {
+      let target = sim.player_pos + playermove.into();
+      for d in Dir4::list() { // are we in combat?
+        let adj = sim.player_pos + d.into();
+        // monsters in void don't count
+        if sim.board[adj] == Tile::default() { continue; }
+        in_combat = in_combat || sim.enemies.get(adj).is_some();
+      }
+      if in_combat { // do combat
+        let crowd: Map<Position, u8> = {
+          // calculates the crowd of enemies we're trying to fight
+          // each occupied position is put into the map, along with
+          // how many steps away it is from the fight location
+          let mut result = Map::new();
+          let mut frontier: Vec<Position> = Vec::new();
+          let mut next_frontier: Vec<Position> = Vec::new();
+          let mut distance: u8 = 0;
+          frontier.push(target);
+          while frontier.len() > 0 {
+            debug!("find crowd {}", distance);
+            while let Some(cursor) = frontier.pop() {
+              if result.contains_key(&cursor) { continue; }
+              if !sim.enemies.contains_key(cursor) { continue; }
+              if sim.board[cursor] == Tile::default() { continue; }
+              result.insert(cursor, distance);
+              for d in Dir4::list() {
+                let neighbor = cursor + d.into();
+                next_frontier.push(neighbor);
+              }
+            }
+            std::mem::swap(&mut frontier, &mut next_frontier);
+            distance += 1;
           }
-          //debug!("a monster turn happened at {:?}", pos)
+          result
+        };
+        if crowd.len() > 0 { // fight!
+          while let Some(_defeated) = sim.enemies.remove(target) {
+            // enemy is defeated
+            // player takes a hit
+            sim.player_hp -= 1;
+            // enemies behind move up
+            let mut vacated = target;
+            let mut dist = 0;
+            'scooch: loop {
+              debug!("scooch {}", dist);
+              for d in Dir4::list() {
+                let neighbor = vacated + d.into();
+                if let Some(&dist2) = crowd.get(&neighbor) {
+                  // enemies only want to scooch closer
+                  if dist2 <= dist { continue; }
+                  if let Some(new_challenger) = sim.enemies.remove(neighbor) {
+                    sim.enemies.insert(vacated, new_challenger);
+                    vacated = neighbor;
+                    dist = dist2;
+                    continue 'scooch;
+                  }
+                }
+              }
+              break;
+            }
+            player_moved = true;
+          }
+        } else { // nobody in this spot to fight
+          needs_road = true;
         }
+      }
 
-        //spawn monsters maybe
-        for &p in sim.void_frontier.iter() {
-          if sim.enemies.contains_key(p) {
-            // don't spawn a monster if there's already a monster
-            continue;
+      if !player_moved && !needs_road { // move player
+        sim.player_pos = target;
+        // TODO: restricted tiles
+        player_moved = true;
+        debug!("player: {:?}", sim.player_pos);
+
+        // try to place tile
+        if sim.board[sim.player_pos] == Tile::default() {
+          sim.place_tile(sim.player_pos, sim.player_current_tile());
+          sim.next_tile();
+          tile_placed = true;
+          //debug!("tiles left: {:?}", sim.player_tiles);
+          sim.update_region_sizes();
+
+          // check for completed regions
+          // a region was just completed if
+          // 1) its id appears on either this tile or its subposition neighbors
+          // 2) its id *does not* appear in open regions
+          let mut just_completed = Set::new();
+          for d in Dir4::list() {
+            let p2 = sim.player_pos + d.into();
+            let d2 = d.opposite();
+            for regionid in [
+              sim.regions[sim.player_pos][d.index()],
+              sim.regions[p2][d2.index()]
+            ] {
+              if regionid == RegionId::MAX { continue; }
+              if !sim.open_regions.contains(&regionid) {
+                just_completed.insert(regionid);
+              }
+            }
           }
-          if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
-            //spawn a monster in this tile
-            let random_enemy_type =
-              EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-            sim.enemies.insert(p, nme);
-            //debug!("spawned a monster {:?} at {:?}", nme.t, p)
+          for &regionid in just_completed.iter() {
+            sim.reward_completed_region(regionid);
           }
+        }
+      }
+    }
+
+    //debug!("{:?}", sim.player_pos);
+    let camera_offset: IVec = display.camera_focus - sim.player_pos;
+    display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
+
+    //monsters
+    if tile_placed || (player_moved && sim.player_tiles < 1) {
+
+      sim.update_player_dmap();
+      sim.update_nearest_dmap();
+
+
+      //do monster turn
+      for (pos, _) in sim.enemies.clone().iter() {
+        let maybe_pos = enemy_pathfind(&mut sim, *pos);
+        if let Some(new_pos) = maybe_pos {
+          sim.move_enemy(*pos, new_pos);
+        }
+        //debug!("a monster turn happened at {:?}", pos)
+      }
+
+      //spawn monsters maybe
+      for &p in sim.void_frontier.iter() {
+        if sim.enemies.contains_key(p) {
+          // don't spawn a monster if there's already a monster
+          continue;
+        }
+        if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
+          //spawn a monster in this tile
+          let random_enemy_type =
+            EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+          let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+          sim.enemies.insert(p, nme);
+          //debug!("spawned a monster {:?} at {:?}", nme.t, p)
         }
       }
     }
