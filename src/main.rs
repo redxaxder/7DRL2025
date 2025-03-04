@@ -769,6 +769,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // handle the just-spawned void-camping case
+  
   if sim.board[pos] == Tile::default() {
     let mut candidates: Vec<IVec> = Vec::new();
     for d in Dir4::list() {
@@ -779,12 +780,25 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     }
     return select_candidate(candidates, sim);
   }
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board); 
-  if valid.len() == 0 {
+
+  // add forest edges to valid set
+
+  let mut valid_1: Vec<Dir4> = forest_edges(&pos, &sim.board); 
+  if valid_1.len() == 0 {
     // no forest edges means anything is a candidate
-    valid = Dir4::list().into();
+    valid_1 = Dir4::list().into();
   }
-  // if a monster did not take a forced move, we should pathfind it
+
+  // remove town edges from the valid set
+
+  let town: Vec<Dir4> = town_edges(&pos, &sim.board);
+  let valid: Vec<Dir4> = valid_1.iter()
+    .filter(|e| !town.contains(e))
+    .map(|x| *x)
+    .collect();
+
+  // pathfind given the valid set
+
   let mut candidates: Vec<IVec> = Vec::new();
   match sim.enemies[pos].t {
     EnemyType::Clyde => {
@@ -837,8 +851,24 @@ pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
     let neighbor: Tile = board[*pos + dir.into()];
     let edge1 = tile.contents[ix];
     let edge2 = neighbor.contents[dir.opposite().index()];
-    debug!("{:?} - {:?} - {:?} - {:?}", edge1, pos, edge2, *pos + IVec::from(dir));
     if edge1 == Terrain::Forest && edge2 == Terrain::Forest {
+      candidates.push(dir);
+    }
+  }
+  candidates
+}
+
+pub fn town_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
+  //this is slightly different from forest_edges because the town edge
+  //logic for monsters is one-way
+  
+  // right up left down (matching dir4.index)
+  let mut candidates: Vec<Dir4> = Vec::new();
+  let tile: Tile = board[*pos];
+  for ix in 0..4 {
+    let dir: Dir4 = Dir4::list()[ix];
+    let edge = tile.contents[ix];
+    if edge == Terrain::Town {
       candidates.push(dir);
     }
   }
