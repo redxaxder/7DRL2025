@@ -71,6 +71,14 @@ impl Terrain {
   pub fn color(self) -> Color {
     TERRAIN_COLOR[self.index()]
   }
+
+  pub fn requires_match(self) -> bool {
+    match self {
+      Self::River => true,
+      Self::Road => true,
+      _ => false,
+    }
+  }
 }
 
 

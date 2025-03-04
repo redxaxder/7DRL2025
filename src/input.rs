@@ -40,6 +40,7 @@ static mut INPUT_MAP_SORTED:bool = false;
 pub fn input_map() -> &'static [(KeyCode, Input)] {
   unsafe{
     if !INPUT_MAP_SORTED {
+    #[allow(static_mut_refs)]
       INPUT_MAP.sort_by_key(|x| { x.0 as u16 });
       INPUT_MAP_SORTED = true;
     }

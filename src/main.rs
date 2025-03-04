@@ -330,17 +330,26 @@ impl SimulationState {
     }
   }
 
-  pub fn tile_compatibility(&self, pos: Position, tile: Tile) -> [bool;4] {
-    let mut result = [true;4];
+  // 2- perfect match
+  // 1- imperfect match
+  // 0- missing required match
+  pub fn tile_compatibility(&self, pos: Position, tile: Tile) -> u8 {
+    let mut compat = 2;
     for d in Dir4::list() {
-      let i = d.index();
+      let t1: Terrain = tile.contents[d.index()];
       let p2 = pos + d.into();
       let i2 = d.opposite().index();
-      let t2 = self.board[p2];
-      result[i] = t2.contents[i2] == Terrain::None
-        || t2.contents[i2] == tile.contents[i];
+      let t2: Terrain = self.board[p2].contents[i2];
+      if t2 == Terrain::None { continue; } // fully compatible
+      if t1 == t2 { continue; } // fully compatible
+      if t1 != t2 {
+        compat = compat.min(1); // soft mismatch
+        if t1.requires_match() || t2.requires_match() {
+          compat = 0; // hard mismatch
+        }
+      }
     }
-    result
+    compat
   }
 }
 
@@ -391,16 +400,6 @@ async fn main() {
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
       let target_empty = sim.board[target] == Tile::default();
-      let target_compatibility = sim.tile_compatibility(target, sim.player_current_tile());
-      let mut target_compatible = true;
-
-      for d in Dir4::list() { // current tile legal to place at target?
-        let t = sim.player_current_tile().contents[d.index()];
-        let needs_compatibility = t == Terrain::River || t == Terrain::Road;
-        target_compatible = target_compatible &&
-          (!needs_compatibility || target_compatibility[d.index()]);
-      }
-
       for d in Dir4::list() { // are we in combat?
         let adj = sim.player_pos + d.into();
         // monsters in void don't count
@@ -493,7 +492,7 @@ async fn main() {
       };
 
       can_move = can_move && (!needs_road || has_road);
-      can_move = can_move && (!target_empty || target_compatible);
+      can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
       if !player_moved && can_move { // move player
         sim.player_pos = target;
 
