@@ -16,11 +16,11 @@
  + unform tile rng (fuss with it later)
 v0.2 "iterable"
  + placeholder art for npc
- - 3 monsters
+ + 3 monsters
  + monsters spawn
    + initial position is outside the map
    + tile placed there blocks a spawn
- - monster turns
+ + monster turns
  - extermination quest
    - appearance requirements:
      - there must be at least one monster type for which there is no ongoing quest

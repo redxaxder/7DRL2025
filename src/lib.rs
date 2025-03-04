@@ -133,7 +133,7 @@ impl EnemyType {
 
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub struct Enemy {
-  id: EnemyId,
+  pub id: EnemyId,
   pub t: EnemyType
 }
 

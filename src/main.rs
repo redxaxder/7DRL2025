@@ -307,7 +307,7 @@ impl SimulationState {
   }
 
   pub fn move_enemy(&mut self, from: Position, to: Position) {
-    if self.enemies.contains_key(&from) {
+    if self.enemies.contains_key(&from) && !self.enemies.contains_key(&to) {
       self.enemies.insert(to, self.enemies[&from]);
       self.enemies.remove(&from);
     }
@@ -340,6 +340,7 @@ async fn main() {
         Input::Dir(dir4) => {
           // move player
           sim.player_pos += dir4.into();
+          debug!("player: {:?}", sim.player_pos);
 
           // try to place tile
           if sim.board[sim.player_pos] == Tile::default() {
@@ -391,35 +392,39 @@ async fn main() {
       let camera_offset: IVec = display.camera_focus - sim.player_pos;
       display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
-    }
+      //monsters
+      if tile_placed || sim.player_tiles < 1 {
+        sim.update_nearest_dmap();
 
-    //monsters
-    if tile_placed || sim.player_tiles < 1 {
-      sim.update_nearest_dmap();
-      //spawn monsters maybe
-      for p in candidate_monster_spawn_tiles(&sim) {
-        if sim.enemies.contains_key(&p) {
-          // don't spawn a monster if there's already a monster
-          continue;
+        //do monster turn
+        for (pos, _) in sim.enemies.clone().iter() {
+          let maybe_pos = enemy_pathfind(&mut sim, *pos);
+          if let Some(new_pos) = maybe_pos {
+            sim.move_enemy(*pos, new_pos);
+          }
+          //debug!("a monster turn happened at {:?}", pos)
         }
-        if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
-          //spawn a monster in this tile
-          let random_enemy_type =
-            EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-          let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-          sim.enemies.insert(p, nme);
-          //debug!("spawned a monster at {:?}", p)
-        }
-      }
 
-      //do monster turn
-      for (pos, _) in sim.enemies.clone().iter() {
-        let new_pos = enemy_pathfind(&mut sim, *pos);
-        sim.move_enemy(*pos, new_pos);
-        //debug!("a monster turn happened at {:?}", pos)
+        //spawn monsters maybe
+        for p in sim.void_frontier.iter() {
+          if sim.enemies.contains_key(&p) {
+            // don't spawn a monster if there's already a monster
+            continue;
+          }
+          if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
+            //spawn a monster in this tile
+            let random_enemy_type =
+              EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+            sim.enemies.insert(*p, nme);
+            debug!("spawned a monster {:?} at {:?}", nme.t, p)
+          }
+        }
+
       }
-    }
     
+    }
+
     let scale: f32 = f32::min(
       screen_width() / display.dim.x as f32,
       screen_height() / display.dim.y as f32,
@@ -451,6 +456,21 @@ async fn main() {
         RED,
         HERO
       );
+
+      // Draw enemies
+      for (pos, nme) in sim.enemies.iter() {
+        let color = match nme.t {
+          EnemyType::Clyde => ORANGE,
+          EnemyType::Blinky => RED,
+          EnemyType::Pinky => PINK,
+          EnemyType::GhostWitch => BLUE,
+        };
+        display.draw_grid(
+          Vec2::from(*pos),
+          color,
+          &enemy(nme.t)
+        );
+      }
 
       { // Draw HUD
         let font_size = 100;
@@ -547,17 +567,16 @@ fn candidate_monster_spawn_tiles(sim: &SimulationState) -> Set<IVec> {
   accum
 }
 
-fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> IVec {
+fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
+  let mut candidates: Vec<IVec> = Vec::new();
   match sim.enemies[&pos].t {
     EnemyType::Clyde => {
-      let mut candidates: Vec<IVec> = Vec::new();
       for d in Dir4::list() {
         let candidate = pos + IVec::from(d);
         if sim.board[candidate] != Tile::default() {
           candidates.push(candidate);
         }
       }
-      candidates[sim.rng.next_u32() as usize % candidates.len()]
     }
     EnemyType::Blinky => {
       let mut min_dir: Dir4 = Dir4::Right;
@@ -569,7 +588,7 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> IVec {
           min_dir = d;
         }
       }
-      pos + IVec::from(min_dir)
+      candidates.push(pos + IVec::from(min_dir));
     }
     EnemyType::Pinky => {
       let mut max_dir: Dir4 = Dir4::Right;
@@ -581,11 +600,28 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> IVec {
           max_dir = d;
         }
       }
-      pos + IVec::from(max_dir)
+      candidates.push(pos + IVec::from(max_dir));
     }
     EnemyType::GhostWitch => {
       // boss does not move
-      pos
+      candidates.push(pos);
     }
+  }
+
+  // filter out invalid tiles
+  let mut valid: Vec<IVec> = Vec::new();
+  for c in candidates.drain(0..) {
+    if sim.board[c] != Tile::default() && !sim.enemies.contains_key(&c) {
+      valid.push(c);
+    }
+  }
+  debug!("valid spaces for monster {:?} at {:?} => \n{:?}", sim.enemies[&pos].t, pos, valid);
+  if valid.len() > 0 {
+    let val = Some(valid[sim.rng.next_u32() as usize % valid.len()]);
+    debug!("went {:?}", val);
+    val
+  }
+  else {
+    None
   }
 }
