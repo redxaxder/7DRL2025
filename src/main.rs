@@ -70,7 +70,7 @@ struct SimulationState {
   // positions bordering void
   void_frontier: Set<Position>,
 
-  enemies: Map<Position, Enemy>,
+  enemies: WrapMap<Enemy>,
   rng: Rng,
 
   player_dmap: DMap,
@@ -88,7 +88,7 @@ impl SimulationState {
       player_next_tile: Tile::default(),
       player_tile_transform: D8::E,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
-      enemies: Map::new(),
+      enemies: WrapMap::new(BOARD_RECT),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
       open_regions: Set::new(),
@@ -299,17 +299,71 @@ impl SimulationState {
   }
 
   pub fn update_player_dmap(&mut self) {
-    self.player_dmap = simple_dmap(BOARD_RECT, self.player_pos);
+    self.player_dmap.fill(i16::MAX);
+    let mut d = 0;
+    let mut frontier = Vec::new();
+    frontier.push(self.player_pos);
+    let mut next_frontier = Vec::new();
+
+    loop {
+      while let Some(visit) = frontier.pop() {
+        if self.player_dmap[visit] > d {
+          self.player_dmap[visit] = d;
+          for d in Dir4::list() {
+            let neighbor = visit + d.into();
+            if self.player_dmap[neighbor] == i16::MAX 
+              && self.board[neighbor] != Tile::default()
+            {
+              next_frontier.push(neighbor);
+            }
+          }
+        }
+      }
+      if next_frontier.len() == 0 {
+        break;
+      }
+      next_frontier.sort();
+      next_frontier.dedup();
+      std::mem::swap(&mut frontier, &mut next_frontier);
+      d += 1;
+    }
   }
 
   pub fn update_nearest_dmap(&mut self) {
-    self.nearest_enemy_dmap = nearest_dmap(BOARD_RECT, &self.enemies);
+    self.nearest_enemy_dmap.fill(i16::MAX);
+    let mut d = 0;
+    let mut frontier = Vec::new();
+    for k in self.enemies.keys() {
+      frontier.push(*k);
+    }
+    let mut next_frontier = Vec::new();
+
+    loop {
+      while let Some(visit) = frontier.pop() {
+        if self.nearest_enemy_dmap[visit] > d {
+          self.nearest_enemy_dmap[visit] = d;
+          for d in Dir4::list() {
+            let neighbor = visit + d.into();
+            if self.nearest_enemy_dmap[neighbor] == i16::MAX
+              && self.board[neighbor] != Tile::default()
+            {
+              next_frontier.push(neighbor);
+            }
+          }
+        }
+      }
+      if next_frontier.len() == 0 { break; }
+      next_frontier.sort();
+      next_frontier.dedup();
+      std::mem::swap(&mut frontier, &mut next_frontier);
+      d += 1;
+    }
   }
 
   pub fn move_enemy(&mut self, from: Position, to: Position) {
-    if self.enemies.contains_key(&from) && !self.enemies.contains_key(&to) {
-      self.enemies.insert(to, self.enemies[&from]);
-      self.enemies.remove(&from);
+    if self.enemies.contains_key(from) && !self.enemies.contains_key(to) {
+      self.enemies.insert(to, self.enemies[from]);
+      self.enemies.remove(from);
     }
   }
 }
@@ -332,7 +386,7 @@ async fn main() {
 
   loop {
     let mut tile_placed: bool = false;
-    sim.update_player_dmap();
+    let mut player_moved: bool = false;
     if let Some(input) = get_input() {
       //debug!("{:?}", input);
       // get input and advance state
@@ -340,6 +394,7 @@ async fn main() {
         Input::Dir(dir4) => {
           // move player
           sim.player_pos += dir4.into();
+          player_moved = true;
           debug!("player: {:?}", sim.player_pos);
 
           // try to place tile
@@ -393,8 +448,11 @@ async fn main() {
       display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
       //monsters
-      if tile_placed || sim.player_tiles < 1 {
+      if tile_placed || (player_moved && sim.player_tiles < 1) {
+
+        sim.update_player_dmap();
         sim.update_nearest_dmap();
+
 
         //do monster turn
         for (pos, _) in sim.enemies.clone().iter() {
@@ -406,8 +464,8 @@ async fn main() {
         }
 
         //spawn monsters maybe
-        for p in sim.void_frontier.iter() {
-          if sim.enemies.contains_key(&p) {
+        for &p in sim.void_frontier.iter() {
+          if sim.enemies.contains_key(p) {
             // don't spawn a monster if there's already a monster
             continue;
           }
@@ -416,13 +474,11 @@ async fn main() {
             let random_enemy_type =
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
             let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-            sim.enemies.insert(*p, nme);
-            debug!("spawned a monster {:?} at {:?}", nme.t, p)
+            sim.enemies.insert(p, nme);
+            //debug!("spawned a monster {:?} at {:?}", nme.t, p)
           }
         }
-
       }
-    
     }
 
     let scale: f32 = f32::min(
@@ -458,16 +514,14 @@ async fn main() {
       );
 
       // Draw enemies
-      for (pos, nme) in sim.enemies.iter() {
-        let color = match nme.t {
-          EnemyType::Clyde => ORANGE,
-          EnemyType::Blinky => RED,
-          EnemyType::Pinky => PINK,
-          EnemyType::GhostWitch => BLUE,
+      for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+        let p = sim.player_pos + offset;
+        let Some(nme) = sim.enemies.get(p) else {
+          continue;
         };
         display.draw_grid(
-          Vec2::from(*pos),
-          color,
+          Vec2::from(p),
+          BLACK,
           &enemy(nme.t)
         );
       }
@@ -522,6 +576,32 @@ async fn main() {
 
       }
 
+      { // draw dmap2
+        //let dmap = &sim.nearest_enemy_dmap;
+        //for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+        //  let p = sim.player_pos + offset;
+        //  let dmapvalue = dmap[p];
+        //  if dmapvalue > 20 {
+        //    continue;
+        //  }
+        //  //let tile = sim.board[p];
+        //  let r = DISPLAY_GRID.rect(p - display.camera_focus);
+        //  let number = format!("{}", dmapvalue);
+        //  let font_size = 50;
+        //  let textdim: TextDimensions = measure_text(
+        //    &number,
+        //    None,
+        //    font_size,
+        //    1.
+        //  );
+        //  let leftoverx = r.w - textdim.width;
+        //  let leftovery = r.h - textdim.height;
+        //  let px = r.x + (0.5 * leftoverx);
+        //  let py = r.y + (0.5 * leftovery) + textdim.offset_y + 30.;
+        //  draw_text(&number, px, py, font_size as f32, WHITE);
+        //}
+      }
+
 
     }
 
@@ -552,24 +632,9 @@ async fn main() {
   }
 }
 
-fn candidate_monster_spawn_tiles(sim: &SimulationState) -> Set<IVec> {
-  let mut accum: Set<IVec> = Set::new();
-  for p in sim.board.rect.iter() {
-    if sim.board[p] == Tile::default()  {
-      for dir in Dir4::list() {
-        let candidate_p = p + IVec::from(dir);
-        if sim.board[candidate_p] != Tile::default() {
-          accum.insert(candidate_p);
-        }
-      }
-    }
-  }
-  accum
-}
-
 fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
   let mut candidates: Vec<IVec> = Vec::new();
-  match sim.enemies[&pos].t {
+  match sim.enemies[pos].t {
     EnemyType::Clyde => {
       for d in Dir4::list() {
         let candidate = pos + IVec::from(d);
@@ -611,14 +676,14 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
   // filter out invalid tiles
   let mut valid: Vec<IVec> = Vec::new();
   for c in candidates.drain(0..) {
-    if sim.board[c] != Tile::default() && !sim.enemies.contains_key(&c) {
+    if sim.board[c] != Tile::default() && !sim.enemies.contains_key(c) {
       valid.push(c);
     }
   }
-  debug!("valid spaces for monster {:?} at {:?} => \n{:?}", sim.enemies[&pos].t, pos, valid);
+  //debug!("valid spaces for monster {:?} at {:?} => \n{:?}", sim.enemies[&pos].t, pos, valid);
   if valid.len() > 0 {
     let val = Some(valid[sim.rng.next_u32() as usize % valid.len()]);
-    debug!("went {:?}", val);
+    //debug!("went {:?}", val);
     val
   }
   else {

@@ -147,27 +147,57 @@ impl Enemy {
 
 pub type DMap = Buffer2D<i16>;
 
-pub fn simple_dmap(rect: IRect, focus: Position) -> DMap {
-  let new_rect = rect.clone();
-  let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
-  for pos in rect.iter() {
-    dmap[pos] = pos.distance1(focus);
+#[derive(Clone, Debug)]
+pub struct WrapMap<V> {
+  rect: IRect,
+  map: Map<Position, V>
+}
+impl<V> WrapMap<V> {
+  pub fn new(rect: IRect) -> Self {
+    WrapMap { rect, map: Map::new() }
   }
-  dmap
+
+  pub fn len(&self) -> usize {
+    self.map.len()
+  }
+
+  pub fn insert(&mut self, k: IVec, v: V) {
+    self.map.insert(
+      self.rect.wrap(k),
+      v
+    );
+  }
+
+  pub fn get(&mut self, k: IVec) -> Option<&V> {
+    self.map.get(
+      &self.rect.wrap(k)
+    )
+  }
+
+  pub fn remove(&mut self, k: IVec) -> Option<V> {
+    self.map.remove(
+      &self.rect.wrap(k)
+    )
+  }
+  pub fn contains_key(&mut self, k: IVec) -> bool {
+    self.map.contains_key(
+      &self.rect.wrap(k)
+    )
+  }
+  pub fn keys(&mut self) -> Keys<IVec, V> {
+    self.map.keys()
+  }
+
+  pub fn iter(&self) -> Iter<IVec, V> {
+    self.map.iter()
+  }
+
 }
 
-pub fn nearest_dmap(rect: IRect, foci: &Map<Position, Enemy>) -> DMap {
-  let new_rect = rect.clone();
-  let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
-  for pos in rect.iter() {
-    let mut min_dist = i16::max_value();
-    for f in foci.keys() {
-      let dist = pos.distance1(*f);
-      if dist < min_dist {
-        min_dist = dist;
-      }
+impl<V> std::ops::Index<IVec> for WrapMap<V> {
+    type Output = V;
+
+    fn index(&self, index: IVec) -> &Self::Output {
+      &self.map[&self.rect.wrap(index)]
     }
-    dmap[pos] = min_dist;
-  }
-  dmap
 }
