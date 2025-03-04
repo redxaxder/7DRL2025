@@ -1,4 +1,10 @@
-- draw HUD
+- fewer enemies
+- enemies dont rudely step on player's toes
+- enemy combat
+- 
+
+
++ draw HUD
 + draw tiles from data (placeholders)
 + draw player
 + get input
