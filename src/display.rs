@@ -18,7 +18,11 @@ pub struct Grid {
 }
 impl Grid {
   pub fn dim(&self) -> Vec2 {
-    Vec2::from(self.bounds.size()) * (self.tile_size + 2.*self.tile_margin)
+    Vec2::from(self.bounds.size()) * self.full_tile_size()
+  }
+
+  pub fn full_tile_size(&self) -> Vec2 {
+    self.tile_size + 2.*self.tile_margin
   }
 
   pub fn to_screen(&self, u: Vec2) -> ScreenCoords {
@@ -70,6 +74,14 @@ impl Display {
     let camera_focus = IVec::ZERO;
 
     Self{ camera_focus, resources, render_to, texture, dim, }
+  }
+
+  pub fn camera_wrap_bounds(&self) -> Rect {
+    let x: f32 = (self.camera_focus.x-BOARD_RECT.width/2) as f32 * DISPLAY_GRID.full_tile_size().x;
+    let y: f32 = (self.camera_focus.y-BOARD_RECT.height/2) as f32 * DISPLAY_GRID.full_tile_size().y;
+    let w = BOARD_RECT.width as f32 * DISPLAY_GRID.full_tile_size().x;
+    let h = BOARD_RECT.height as f32 * DISPLAY_GRID.full_tile_size().y;
+    Rect { x, y, w, h }
   }
 
   pub fn draw_img(&self,

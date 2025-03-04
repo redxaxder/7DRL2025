@@ -1,3 +1,6 @@
+pub const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
+
+
 pub mod display;
 pub use display::*;
 
@@ -30,8 +33,6 @@ pub type Seconds = f64;
 
 pub mod footguns;
 
-
-pub mod misc;
 
 pub mod assets;
 pub use crate::assets::*;
@@ -121,7 +122,7 @@ impl std::ops::Mul<Tile> for D8 {
   }
 }
 
-pub type EnemyId = u64;
+pub type UnitId = u64;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -142,15 +143,27 @@ impl EnemyType {
   }
 }
 
+
+pub const PLAYER_UNIT_ID: UnitId = 0;
+static mut NEXT_UNIT_ID: UnitId = 10;
+fn next_unit_id() -> UnitId {
+  unsafe {
+    let r = NEXT_UNIT_ID;
+    NEXT_UNIT_ID += 1;
+    r
+  }
+}
+
+
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub struct Enemy {
-  pub id: EnemyId,
+  pub id: UnitId,
   pub t: EnemyType
 }
 
 impl Enemy {
-  pub fn new(rng: &mut Rng, nme_type: EnemyType) -> Self {
-    let id = rng.next_u64();
+  pub fn new(nme_type: EnemyType) -> Self {
+    let id = next_unit_id();
     let t = nme_type;
     Enemy { id, t}
   }
@@ -223,13 +236,24 @@ impl<V> WrapMap<V> {
 }
 
 impl<V> std::ops::Index<IVec> for WrapMap<V> {
-    type Output = V;
+  type Output = V;
 
-    fn index(&self, index: IVec) -> &Self::Output {
-      &self.map[&self.rect.wrap(index)]
-    }
+  fn index(&self, index: IVec) -> &Self::Output {
+    &self.map[&self.rect.wrap(index)]
+  }
 }
 
 pub fn roll_chance(rng: &mut Rng, chance: u64) -> bool {
   rng.next_u64() % 1000 < chance
+}
+
+pub fn wrap_rect(rect: Rect, v: Vec2) -> Vec2 {
+  Vec2 {
+    x: wrap1f(v.x, rect.x, rect.w),
+    y: wrap1f(v.y, rect.y, rect.h),
+  }
+}
+
+fn wrap1f(x: f32, min: f32, width: f32)  -> f32 {
+  (x - min).rem_euclid(width) + min
 }

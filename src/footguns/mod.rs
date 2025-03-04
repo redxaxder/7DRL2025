@@ -6,7 +6,6 @@ use std::marker::PhantomData;
 use std::ops::Index;
 use std::ops::IndexMut;
 
-#[derive(Clone)]
 pub struct Ref<T>{
   rc: Rc<UnsafeCell<T>>,
   // so that this is not inferred as Sync or Send
@@ -32,6 +31,15 @@ impl<T> Ref<T> {
     }
   }
 
+}
+
+impl<T> Clone for Ref<T>{
+  fn clone(&self) -> Self {
+    Ref {
+      rc: self.rc.clone(),
+      _marker: PhantomData
+    }
+  }
 }
 
 impl<T> std::ops::Deref for Ref<T> {

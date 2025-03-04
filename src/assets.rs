@@ -14,7 +14,7 @@ pub const LOAD_ME: &[&'static str] = &[
 ];
 
 
-pub const HERO: &Img = &Img {
+pub const HERO: Img = Img {
   path: "hero.png",
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };

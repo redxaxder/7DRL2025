@@ -1,16 +1,15 @@
 #![allow(dead_code)]
 
 use rl2025::*;
+use footguns::Ref;
 
 type RegionId = u16;
-const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
 const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
 const QUEST_SPAWN_CHANCE: u64 = 5; // units are 1/10 percent
 const MIN_QUEST: u64 = 5;
 const MAX_QUEST: u64 = 20;
 const REGION_REWARD_THRESHOLD: usize = 4;
 
-#[derive(Clone)]
 struct SimulationState {
   player_pos: Position,
   player_hp: i64,
@@ -41,7 +40,21 @@ struct SimulationState {
 
   player_dmap: DMap,
   nearest_enemy_dmap: DMap,
+
+
+  // Animation stuff
+  animations: AnimationQueue,
+  ragdolls: Map<UnitId, Ref<Ragdoll>>,
 }
+
+//#[derive(Clone)]
+pub struct Ragdoll {
+  pub pos: Vec2,
+  pub img: Img,
+  pub color: Color,
+  pub dead: bool,
+}
+
 impl SimulationState {
   pub fn new() -> Self {
     SimulationState {
@@ -67,6 +80,10 @@ impl SimulationState {
       rng: from_current_time(),
       player_dmap: Buffer2D::new(0, BOARD_RECT),
       nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
+
+      // Animation stuff
+      animations: AnimationQueue::new(),
+      ragdolls: Map::new(),
     }
   }
 
@@ -340,10 +357,101 @@ impl SimulationState {
   }
 
   pub fn move_enemy(&mut self, from: Position, to: Position) {
-    if self.enemies.contains_key(from) && !self.enemies.contains_key(to) {
-      self.enemies.insert(to, self.enemies[from]);
-      self.enemies.remove(from);
+    info!("move enemy {:?} -> {:?}", from, to);
+    if !self.enemies.contains_key(to) {
+      if let Some(nme) = self.enemies.remove(from) {
+        self.enemies.insert(to, nme);
+        self.animate_unit_motion(nme.id, from.into(), to.into(), 0.3)
+          .reserve(&[from, to])
+          .reserve(&[nme.id])
+          ;
+      }
     }
+  }
+
+  pub fn player_relative_coordinates(&self, p: Vec2) -> Vec2 {
+    let w = BOARD_RECT.width as f32;
+    let h = BOARD_RECT.height as f32;
+    let r: Rect = Rect {
+      x: self.player_pos.x as f32 - (w / 2.),
+      y: self.player_pos.y as f32 - (h / 2.),
+      w, h
+    };
+    wrap_rect(r, p)
+  }
+
+  pub fn slay_enemy(&mut self, at: Position, dir: Dir4) {
+    if let Some(nme) = self.enemies.remove(at) {
+      let id = nme.id;
+      let mut velocity: Vec2 = Vec2::from(dir) * 3.;
+      velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
+      velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
+      velocity *= 8.;
+      self.animate_unit_fling(id, at.into(), velocity, 0.2).reserve(&[id]);
+
+    }
+  }
+
+  fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
+    if let Some(rgr) = self.ragdolls.get(&unit_id) {
+      (*rgr).clone()
+    } else if unit_id == PLAYER_UNIT_ID {
+      // TODO: make player ragdoll
+      let rgr = Ref::new(Ragdoll {
+        pos: Vec2::from(self.player_pos),
+        color: BLACK,
+        img: HERO,
+        dead: false,
+      });
+      self.ragdolls.insert(unit_id, rgr.clone());
+      rgr
+    } else {
+      let Some((pos, nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
+        panic!("tried to generate ragdoll for an id that doesn't exist")
+      };
+      let rgr = Ref::new(Ragdoll {
+        pos: Vec2::from(*pos),
+        color: BLACK,
+        img: enemy(nme.t),
+        dead: false,
+      });
+      self.ragdolls.insert(unit_id, rgr.clone());
+      rgr
+    }
+  }
+
+  pub fn animate_unit_fling(&mut self, u: UnitId, p0: Vec2, velocity: Vec2, duration: Seconds) -> &mut Animation {
+    let uref = self.ragdoll_ref(u);
+    self.animations.append(move |time| {
+      let progress = time.progress(duration);
+      unsafe {
+        uref.get().pos = p0 + velocity * (time.elapsed as f32);
+        if progress >= 1. {
+          uref.get().dead = true;
+        }
+      }
+      progress < 1.
+    })
+  }
+
+  pub fn animate_unit_motion(&mut self, u: UnitId, p0: Vec2, p1: Vec2, duration: Seconds) -> &mut Animation {
+    let prc0 = self.player_relative_coordinates(p0);
+    let prc1 = self.player_relative_coordinates(p1);
+    let uref = self.ragdoll_ref(u);
+    self.animations.append(move |time| {
+      let c = time.progress(duration);
+        unsafe {
+          uref.get().pos = c * prc1 + (1.-c) * prc0;
+        }
+      c < 1.
+    })
+  }
+
+  pub fn move_player(&mut self, to: Position) {
+    let from = self.player_pos;
+    self.player_pos = to;
+    self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), 0.3)
+      .reserve(&[from,to]);
   }
 
   // 2- perfect match
@@ -367,7 +475,20 @@ impl SimulationState {
     }
     compat
   }
+
+  pub fn tick_animations(&mut self) {
+    self.animations.tick();
+    let mut died = vec!();
+    for (id,v) in self.ragdolls.iter() {
+      if v.dead { died.push(*id); }
+    }
+    for dead in died {
+      self.ragdolls.remove(&dead);
+    }
+  }
 }
+
+
 
 #[macroquad::main("7drl")]
 async fn main() {
@@ -386,6 +507,9 @@ async fn main() {
   let mut display = Display::new(resources, display_dim);
 
   loop {
+    if get_keys_pressed().len() > 0 {
+      sim.animations.hurry(2.);
+    }
     let mut inputdir: Option<Dir4> = None;
     if let Some(input) = get_input() {
       match input {
@@ -452,7 +576,8 @@ async fn main() {
           result
         };
         if crowd.len() > 0 { // fight!
-          while let Some(_defeated) = sim.enemies.remove(target) {
+          while sim.enemies.contains_key(target) {
+            sim.slay_enemy(target, playermove);
             // enemy is defeated
             // player takes a hit
             sim.player_hp -= 1;
@@ -466,8 +591,8 @@ async fn main() {
                 if let Some(&dist2) = crowd.get(&neighbor) {
                   // enemies only want to scooch closer
                   if dist2 <= dist { continue; }
-                  if let Some(new_challenger) = sim.enemies.remove(neighbor) {
-                    sim.enemies.insert(vacated, new_challenger);
+                  if sim.enemies.contains_key(neighbor) {
+                    sim.move_enemy(neighbor, vacated);
                     vacated = neighbor;
                     dist = dist2;
                     continue 'scooch;
@@ -526,9 +651,10 @@ async fn main() {
             && t1 == Terrain::River
         };
 
-        sim.player_pos = target;
+        sim.move_player(target);
+
         player_moved = true;
-        //debug!("player: {:?}", sim.player_pos);
+        debug!("player: {:?}", sim.player_pos);
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
@@ -603,7 +729,7 @@ async fn main() {
             //spawn a monster in this tile
             let random_enemy_type =
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+            let nme = Enemy::new(random_enemy_type);
             sim.enemies.insert(p, nme);
             //debug!("spawned a monster {:?} at {:?}", nme.t, p)
           }
@@ -611,6 +737,9 @@ async fn main() {
         monster_turns -= 1;
       }
     }
+
+    sim.tick_animations();
+
 
     let scale: f32 = f32::min(
       screen_width() / display.dim.x as f32,
@@ -623,11 +752,11 @@ async fn main() {
 
 
       // DEBUG GRID VERTICES
-      let spots = IRect{x: 0, y: 0, width: 20, height: 20};
-      for s in spots.iter() {
-        let v = Vec2::from(s) * 128.;
-        draw_circle(v.x, v.y, 20., BLUE);
-      }
+      //let spots = IRect{x: 0, y: 0, width: 20, height: 20};
+      //for s in spots.iter() {
+      //  let v = Vec2::from(s) * 128.;
+      //  draw_circle(v.x, v.y, 20., BLUE);
+      //}
 
       // Draw terrain
       for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
@@ -637,23 +766,12 @@ async fn main() {
         display.draw_tile(r, tile);
       }
 
-      // Draw player
-      display.draw_grid(
-        sim.player_pos.into(),
-        RED,
-        HERO
-      );
-
-      // Draw enemies
-      for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
-        let p = sim.player_pos + offset;
-        let Some(nme) = sim.enemies.get(p) else {
-          continue;
-        };
+      // draw units
+      for ragdoll in sim.ragdolls.values() {
         display.draw_grid(
-          Vec2::from(p),
-          BLACK,
-          &enemy(nme.t)
+          ragdoll.pos,
+          ragdoll.color,
+          &ragdoll.img
         );
       }
 
