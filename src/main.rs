@@ -413,6 +413,7 @@ async fn main() {
     let mut needs_road = false;
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
+      let target_empty = sim.board[target] == Tile::default();
       for d in Dir4::list() { // are we in combat?
         let adj = sim.player_pos + d.into();
         // monsters in void don't count
@@ -479,7 +480,29 @@ async fn main() {
         }
       }
 
-      if !player_moved && !needs_road { // move player
+      let has_road = {
+        // two cases:
+        // 1) there is an existing road here we can take
+        // 2) there is a half road here, with the other half
+        //    in hand and oriented the right way
+        // either way, the check for the first half of the road is the same
+
+        let d1 = playermove;
+        let d2 = playermove.opposite();
+        let first_half = Terrain::Road ==
+          sim.board[sim.player_pos].contents[d1.index()];
+
+        let second_half = Terrain::Road ==
+          if target_empty {
+            sim.player_current_tile().contents[d2.index()]
+          } else {
+            sim.board[target].contents[d2.index()]
+          };
+
+        first_half && second_half
+      };
+
+      if !player_moved && (!needs_road || has_road) { // move player
         sim.player_pos = target;
         // TODO: restricted tiles
         player_moved = true;
