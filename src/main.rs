@@ -43,6 +43,10 @@ mod tiles {
 
 }
 
+type RegionId = u16;
+const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
+const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
+
 #[derive(Clone)]
 struct SimulationState {
   player_pos: Position,
@@ -58,7 +62,9 @@ struct SimulationState {
   regions: Buffer2D<[RegionId;4]>,
   region_sizes: Map<RegionId, usize>,
   next_region_id: RegionId,
-
+  // regions that border void
+  open_regions: Set<RegionId>,
+  // positions bordering void
   void_frontier: Set<Position>,
 
   enemies: Map<Position, Enemy>,
@@ -67,12 +73,6 @@ struct SimulationState {
   player_dmap: DMap,
   nearest_enemy_dmap: DMap,
 }
-
-type RegionId = u16;
-
-const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
-const MONSTER_SPAWN_CHANCE: u64 = 10; // units are percent
-
 impl SimulationState {
   pub fn new() -> Self {
     SimulationState {
@@ -88,6 +88,7 @@ impl SimulationState {
       enemies: Map::new(),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
+      open_regions: Set::new(),
       void_frontier: Set::new(),
       region_sizes: Map::new(),
       rng: from_global_rng(),
@@ -147,7 +148,7 @@ impl SimulationState {
         min_rid = min_rid.min(rid1);
       }
 
-      for i in 0..4 { // walk matches with rid below min
+      for i in 0..4 { // walk matches with rid above min
         let (np, nd) = neighbors[i];
         // the opposite is not considered adajcent if the center terrain doesn't match
         if i == 0 && self.board[p].contents[4] != t0 { continue; }
@@ -155,11 +156,14 @@ impl SimulationState {
         if t1 != t0 { continue; }
         let rid1 = self.regions[np][nd.index()];
 
-        if rid1 < min_rid { frontier.push((np, nd)) }
+        if min_rid < rid1 { frontier.push((np, nd)) }
       }
 
       if min_rid < rid {
         self.regions[p][d.index()] = min_rid;
+        //if rid < RegionId::MAX {
+        //  debug!("update cell regionid {} -> {}", rid, min_rid);
+        //}
       }
     }
   }
@@ -167,11 +171,16 @@ impl SimulationState {
   pub fn place_tile(&mut self, position: Position, tile: Tile) {
     self.board[position] = tile;
 
-
     { // region tracking
+      // merge regions
       for d in Dir4::list() {
         self.fill_region_ids(position, d);
       }
+      for d in Dir4::list() {
+        self.fill_region_ids(position, d);
+      }
+
+      // new regions
       for d in Dir4::list() {
         self.fill_region_ids(position,d);
         if self.regions[position][d.index()] == RegionId::MAX {
@@ -179,12 +188,26 @@ impl SimulationState {
           self.next_region_id += 1;
         }
       }
+
+      // update void frontier
       let wp = self.board.rect.wrap(position);
       self.void_frontier.remove(&wp);
       for d in Dir4::list() {
         let n = self.board.rect.wrap(wp + d.into());
         if self.board[n] == Tile::default() {
           self.void_frontier.insert(n);
+        }
+      }
+
+      // rebuild open regions
+      self.open_regions.clear();
+      for &void_cell in &self.void_frontier {
+        for d in Dir4::list() {
+          let cell = void_cell + d.into();
+          let regionid = self.regions[cell][d.opposite().index()];
+          if regionid < RegionId::MAX {
+            self.open_regions.insert(regionid);
+          }
         }
       }
     }
@@ -234,6 +257,10 @@ impl SimulationState {
         *self.region_sizes.entry(rid).or_insert(0) += 1;
       }
     }
+  }
+
+  pub fn reward_completed_region(&mut self, rid: RegionId) {
+    //TODO: actual reward
   }
 
   pub fn player_current_tile(&self) -> Tile {
@@ -296,6 +323,28 @@ async fn main() {
             tile_placed = true;
             //debug!("tiles left: {:?}", sim.player_tiles);
             sim.update_region_sizes();
+
+            // check for completed regions
+            // a region was just completed if
+            // 1) its id appears on either this tile or its subposition neighbors
+            // 2) its id *does not* appear in open regions
+            let mut just_completed = Set::new();
+            for d in Dir4::list() {
+              let p2 = sim.player_pos + d.into();
+              let d2 = d.opposite();
+              for regionid in [
+                sim.regions[sim.player_pos][d.index()],
+                sim.regions[p2][d2.index()]
+              ] {
+                if regionid == RegionId::MAX { continue; }
+                if !sim.open_regions.contains(&regionid) {
+                  just_completed.insert(regionid);
+                }
+              }
+            }
+            for &regionid in just_completed.iter() {
+              sim.reward_completed_region(regionid);
+            }
           }
         },
         Input::Rotate1 => {
