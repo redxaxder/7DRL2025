@@ -13,6 +13,7 @@ pub use crate::geometry::*;
 pub mod input;
 pub use crate::input::*;
 
+pub mod tiles;
 
 pub mod resources;
 pub use resources::*;
