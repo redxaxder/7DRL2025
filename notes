@@ -27,10 +27,10 @@ v0.2 "iterable"
      - there must be at least 1 of such a monster
    - on completion, get 5 tiles + quest heal
  + perfect tile bonus (+1 tile)
- - combat
-   - restrict movement when by a monster
-   - funnel system
-   - gain exp from monster kill
+ + combat
+   + restrict movement when by a monster
+   + funnel system
+   + gain exp from monster kill
  + key to level up
  - key to collect nearest quest heal
  + exp system
@@ -50,11 +50,14 @@ v0.2 "iterable"
    + (placeholder art)
  - terrain effects:
    - forest - restrict monster moves
-   - road - unrestrict player moves; restrict tile placement
+   + road + unrestrict player moves
+          + restrict tile placement
    - town - restrict monster moves
-   - river - restrict tile placement; pool extra monster turns
+   - river + restrict tile placement
+           - pool extra monster turns
+             - exception for roads
            - not eligible for terrain quest if no river source
-   - grass - no changes. just didn't want to leave you out, bro
+   + grass + no changes. just didn't want to leave you out, bro
  - victory
    - collect mcguffin which starts surrounded by monsters in the forest
      - 4th monster type that doesn't take a turn
