@@ -247,194 +247,194 @@ impl SimulationState {
 
 #[macroquad::main("7drl")]
 async fn main() {
-    debug!("This is a debug message");
-    info!("and info message");
-    error!("and errors, the red ones!");
-    warn!("Or warnings, the yellow ones.");
+  debug!("This is a debug message");
+  info!("and info message");
+  error!("and errors, the red ones!");
+  warn!("Or warnings, the yellow ones.");
 
-    let mut sim = SimulationState::new();
-    sim.next_tile();
+  let mut sim = SimulationState::new();
+  sim.next_tile();
 
-    let mut resources = Resources::new(ASSETS);
-    for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
+  let mut resources = Resources::new(ASSETS);
+  for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
 
-    let display_dim: Vec2 = DISPLAY_GRID.dim();
-    let mut display = Display::new(resources, display_dim);
+  let display_dim: Vec2 = DISPLAY_GRID.dim();
+  let mut display = Display::new(resources, display_dim);
 
-    loop {
-      let mut tile_placed: bool = false;
-      if let Some(input) = get_input() {
-        //debug!("{:?}", input);
-        // get input and advance state
-        match input {
-          Input::Dir(dir4) => {
-            // move player
-            sim.player_pos += dir4.into();
+  loop {
+    let mut tile_placed: bool = false;
+    if let Some(input) = get_input() {
+      //debug!("{:?}", input);
+      // get input and advance state
+      match input {
+        Input::Dir(dir4) => {
+          // move player
+          sim.player_pos += dir4.into();
 
-            // try to place tile
-            if sim.board[sim.player_pos] == Tile::default() {
-              sim.place_tile(sim.player_pos, sim.player_current_tile());
-              sim.next_tile();
-              tile_placed = true;
-              //debug!("tiles left: {:?}", sim.player_tiles);
-              sim.update_region_sizes();
-            }
-          },
-          Input::Rotate1 => {
-            sim.player_tile_transform = D8::R1 * sim.player_tile_transform;
-          }
-          Input::Rotate2 => {
-            sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
-          }
-          Input::Discard => {
+          // try to place tile
+          if sim.board[sim.player_pos] == Tile::default() {
+            sim.place_tile(sim.player_pos, sim.player_current_tile());
             sim.next_tile();
+            tile_placed = true;
             //debug!("tiles left: {:?}", sim.player_tiles);
+            sim.update_region_sizes();
           }
-          Input::LevelUp => {
-            sim.player_level_up()
-          }
+        },
+        Input::Rotate1 => {
+          sim.player_tile_transform = D8::R1 * sim.player_tile_transform;
         }
-
-        //debug!("{:?}", sim.player_pos);
-        let camera_offset: IVec = display.camera_focus - sim.player_pos;
-        display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
-
-      }
-
-      //monsters
-      if tile_placed || sim.player_tiles < 1 {
-        //spawn monsters maybe
-        for p in candidate_monster_spawn_tiles(&sim) {
-          if sim.enemies.contains_key(&p) {
-            // don't spawn a monster if there's already a monster
-            continue;
-          }
-          if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
-            //spawn a monster in this tile
-            let random_enemy_type =
-              EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-            sim.enemies.insert(p, nme);
-            //debug!("spawned a monster at {:?}", p)
-          }
+        Input::Rotate2 => {
+          sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
         }
-
-        //do monster turn
-        for (pos, nme) in sim.enemies.iter() {
-          //debug!("a monster turn happened at {:?}", pos)
+        Input::Discard => {
+          sim.next_tile();
+          //debug!("tiles left: {:?}", sim.player_tiles);
+        }
+        Input::LevelUp => {
+          sim.player_level_up()
         }
       }
-      
-      let scale: f32 = f32::min(
-        screen_width() / display.dim.x as f32,
-        screen_height() / display.dim.y as f32,
+
+      //debug!("{:?}", sim.player_pos);
+      let camera_offset: IVec = display.camera_focus - sim.player_pos;
+      display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
+
+    }
+
+    //monsters
+    if tile_placed || sim.player_tiles < 1 {
+      //spawn monsters maybe
+      for p in candidate_monster_spawn_tiles(&sim) {
+        if sim.enemies.contains_key(&p) {
+          // don't spawn a monster if there's already a monster
+          continue;
+        }
+        if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
+          //spawn a monster in this tile
+          let random_enemy_type =
+            EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+          let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+          sim.enemies.insert(p, nme);
+          //debug!("spawned a monster at {:?}", p)
+        }
+      }
+
+      //do monster turn
+      for (pos, nme) in sim.enemies.iter() {
+        //debug!("a monster turn happened at {:?}", pos)
+      }
+    }
+
+    let scale: f32 = f32::min(
+      screen_width() / display.dim.x as f32,
+      screen_height() / display.dim.y as f32,
+    );
+
+    { // Redraw the display
+      set_camera(&display.render_to);
+      clear_background(DARKPURPLE);
+
+
+      // DEBUG GRID VERTICES
+      let spots = IRect{x: 0, y: 0, width: 20, height: 20};
+      for s in spots.iter() {
+        let v = Vec2::from(s) * 128.;
+        draw_circle(v.x, v.y, 20., BLUE);
+      }
+
+      // Draw terrain
+      for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+        let p = sim.player_pos + offset;
+        let tile = sim.board[p];
+        let r = DISPLAY_GRID.rect(p - display.camera_focus);
+        display.draw_tile(r, tile);
+      }
+
+      // Draw player
+      display.draw_grid(
+        sim.player_pos.into(),
+        RED,
+        HERO
       );
 
-      { // Redraw the display
-        set_camera(&display.render_to);
-        clear_background(DARKPURPLE);
+      { // Draw HUD
+        let font_size = 100;
+        let font_scale = 1.;
+
+        let margin = 15.;
+        let sz = DISPLAY_GRID.tile_size;
+        let hudbar_height = sz.y + 2. * margin;
+        let hud_top = display.dim.y - hudbar_height;
+        draw_rectangle(0.,hud_top,display.dim.x, hudbar_height, DARKGRAY);
 
 
-        // DEBUG GRID VERTICES
-        let spots = IRect{x: 0, y: 0, width: 20, height: 20};
-        for s in spots.iter() {
-          let v = Vec2::from(s) * 128.;
-          draw_circle(v.x, v.y, 20., BLUE);
-        }
+        // Next Tile
+        let r = Rect {
+          x: display.dim.x - sz.x - margin,
+          y: hud_top + margin ,
+          w: sz.x,
+          h: sz.y
+        };
+        display.draw_tile(r, sim.player_current_tile());
 
-        // Draw terrain
-        for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
-          let p = sim.player_pos + offset;
-          let tile = sim.board[p];
-          let r = DISPLAY_GRID.rect(p - display.camera_focus);
-          display.draw_tile(r, tile);
-        }
-
-        // Draw player
-        display.draw_grid(
-          sim.player_pos.into(),
-          RED,
-          HERO
-        );
-
-        { // Draw HUD
-          let font_size = 100;
-          let font_scale = 1.;
-
-          let margin = 15.;
-          let sz = DISPLAY_GRID.tile_size;
-          let hudbar_height = sz.y + 2. * margin;
-          let hud_top = display.dim.y - hudbar_height;
-          draw_rectangle(0.,hud_top,display.dim.x, hudbar_height, DARKGRAY);
+        // Remaining tiles
+        let remaining_tiles = format!("{}", sim.player_tiles);
+        let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
+        let leftover = hudbar_height - textdim.height;
+        let x = r.x - textdim.width - margin;
+        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+        draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
 
 
-          // Next Tile
-          let r = Rect {
-            x: display.dim.x - sz.x - margin,
-            y: hud_top + margin ,
-            w: sz.x,
-            h: sz.y
-          };
-          display.draw_tile(r, sim.player_current_tile());
-
-          // Remaining tiles
-          let remaining_tiles = format!("{}", sim.player_tiles);
-          let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
-          let leftover = hudbar_height - textdim.height;
-          let x = r.x - textdim.width - margin;
-          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-          draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
+        let mut cursor = margin;
+        // Current/Max HP
+        let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
+        let textdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
+        let leftover = hudbar_height - textdim.height;
+        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+        draw_text(&hp, cursor, y, font_size as f32, WHITE);
+        cursor += textdim.width + margin;
 
 
-          let mut cursor = margin;
-          // Current/Max HP
-          let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
-          let textdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-          let leftover = hudbar_height - textdim.height;
-          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-          draw_text(&hp, cursor, y, font_size as f32, WHITE);
-          cursor += textdim.width + margin;
-
-
-          // Current/Next XP
-          let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
-          let textdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
-          let leftover = hudbar_height - textdim.height;
-          let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-          draw_text(&xp, cursor, y, font_size as f32, WHITE);
-          //cursor += textdim.width + margin;
-
-
-        }
+        // Current/Next XP
+        let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
+        let textdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
+        let leftover = hudbar_height - textdim.height;
+        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
+        draw_text(&xp, cursor, y, font_size as f32, WHITE);
+        //cursor += textdim.width + margin;
 
 
       }
 
-      { // Copy the display to the screen
-        set_default_camera();
-        clear_background(BLACK);
 
-        draw_texture_ex(
-          &display.texture,
-          (screen_width() - (scale * display.dim.x)) * 0.5,
-          (screen_height() - (scale * display.dim.y)) * 0.5,
-          WHITE,
-          DrawTextureParams {
-            dest_size: Some(vec2(
-                           scale * display.dim.x as f32,
-                           scale * display.dim.y as f32,
-                       )),
-                       flip_y: true,
-                       ..Default::default()
-          },
-        );
-      }
-
-
-
-
-      next_frame().await
     }
+
+    { // Copy the display to the screen
+      set_default_camera();
+      clear_background(BLACK);
+
+      draw_texture_ex(
+        &display.texture,
+        (screen_width() - (scale * display.dim.x)) * 0.5,
+        (screen_height() - (scale * display.dim.y)) * 0.5,
+        WHITE,
+        DrawTextureParams {
+          dest_size: Some(vec2(
+                         scale * display.dim.x as f32,
+                         scale * display.dim.y as f32,
+                     )),
+                     flip_y: true,
+                     ..Default::default()
+        },
+      );
+    }
+
+
+
+
+    next_frame().await
+  }
 }
 
 fn candidate_monster_spawn_tiles(sim: &SimulationState) -> HashSet<IVec> {
