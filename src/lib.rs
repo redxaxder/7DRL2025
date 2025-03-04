@@ -35,6 +35,8 @@ pub mod misc;
 pub mod assets;
 pub use crate::assets::*;
 
+use linear_map::*;
+
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -143,7 +145,7 @@ impl Enemy {
   }
 }
 
-type DMap = Buffer2D<i16>;
+pub type DMap = Buffer2D<i16>;
 
 pub fn simple_dmap(rect: IRect, focus: Position) -> DMap {
   let new_rect = rect.clone();
@@ -154,12 +156,12 @@ pub fn simple_dmap(rect: IRect, focus: Position) -> DMap {
   dmap
 }
 
-pub fn nearest_dmap(rect: IRect, foci: Set<Position>) -> DMap {
+pub fn nearest_dmap(rect: IRect, foci: &Map<Position, Enemy>) -> DMap {
   let new_rect = rect.clone();
   let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
   for pos in rect.iter() {
     let mut min_dist = i16::max_value();
-    for f in foci.iter() {
+    for f in foci.keys() {
       let dist = pos.distance1(*f);
       if dist < min_dist {
         min_dist = dist;

@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
 use rl2025::*;
-use std::collections::{HashMap, HashSet};
-
 
 mod tiles {
   use crate::*;
@@ -65,6 +63,9 @@ struct SimulationState {
 
   enemies: Map<Position, Enemy>,
   rng: Rng,
+
+  player_dmap: DMap,
+  nearest_enemy_dmap: DMap,
 }
 
 type RegionId = u16;
@@ -90,6 +91,8 @@ impl SimulationState {
       void_frontier: Set::new(),
       region_sizes: Map::new(),
       rng: from_global_rng(),
+      player_dmap: Buffer2D::new(0, BOARD_RECT),
+      nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
     }
   }
 
@@ -243,8 +246,20 @@ impl SimulationState {
     self.player_tiles -= 1;
   }
 
-  pub fn update_dmaps(&mut self) {}
+  pub fn update_player_dmap(&mut self) {
+    self.player_dmap = simple_dmap(BOARD_RECT, self.player_pos);
+  }
 
+  pub fn update_nearest_dmap(&mut self) {
+    self.nearest_enemy_dmap = nearest_dmap(BOARD_RECT, &self.enemies);
+  }
+
+  pub fn move_enemy(&mut self, from: Position, to: Position) {
+    if self.enemies.contains_key(&from) {
+      self.enemies.insert(to, self.enemies[&from]);
+      self.enemies.remove(&from);
+    }
+  }
 }
 
 #[macroquad::main("7drl")]
@@ -265,6 +280,7 @@ async fn main() {
 
   loop {
     let mut tile_placed: bool = false;
+    sim.update_player_dmap();
     if let Some(input) = get_input() {
       //debug!("{:?}", input);
       // get input and advance state
@@ -305,6 +321,7 @@ async fn main() {
 
     //monsters
     if tile_placed || sim.player_tiles < 1 {
+      sim.update_nearest_dmap();
       //spawn monsters maybe
       for p in candidate_monster_spawn_tiles(&sim) {
         if sim.enemies.contains_key(&p) {
@@ -322,7 +339,9 @@ async fn main() {
       }
 
       //do monster turn
-      for (pos, nme) in sim.enemies.iter() {
+      for (pos, _) in sim.enemies.clone().iter() {
+        let new_pos = enemy_pathfind(&mut sim, *pos);
+        sim.move_enemy(*pos, new_pos);
         //debug!("a monster turn happened at {:?}", pos)
       }
     }
@@ -439,8 +458,8 @@ async fn main() {
   }
 }
 
-fn candidate_monster_spawn_tiles(sim: &SimulationState) -> HashSet<IVec> {
-  let mut accum: HashSet<IVec> = HashSet::new();
+fn candidate_monster_spawn_tiles(sim: &SimulationState) -> Set<IVec> {
+  let mut accum: Set<IVec> = Set::new();
   for p in sim.board.rect.iter() {
     if sim.board[p] == Tile::default()  {
       for dir in Dir4::list() {
@@ -467,10 +486,28 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> IVec {
       candidates[sim.rng.next_u32() as usize % candidates.len()]
     }
     EnemyType::Blinky => {
-      todo!()
+      let mut min_dir: Dir4 = Dir4::Right;
+      let mut min: i16 = i16::max_value();
+      for d in Dir4::list() {
+        let c = pos + IVec::from(d);
+        if sim.player_dmap[c] < min {
+          min = sim.player_dmap[c];
+          min_dir = d;
+        }
+      }
+      pos + IVec::from(min_dir)
     }
     EnemyType::Pinky => {
-      todo!()
+      let mut max_dir: Dir4 = Dir4::Right;
+      let mut max: i16 = 0;
+      for d in Dir4::list() {
+        let c = pos + IVec::from(d);
+        if sim.nearest_enemy_dmap[c] > max {
+          max = sim.nearest_enemy_dmap[c];
+          max_dir = d;
+        }
+      }
+      pos + IVec::from(max_dir)
     }
     EnemyType::GhostWitch => {
       // boss does not move
