@@ -126,17 +126,19 @@ pub type EnemyId = u64;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
 pub enum EnemyType {
-  Clyde = 0, //moves randomly
-  Blinky = 1, //chases player
-  Pinky = 2, //avoids other enemies
-  GhostWitch = 3, //the boss
+  Clyde, //moves randomly
+  Blinky, //chases player
+  Pinky, //avoids other enemies
+  GhostWitch, //the boss
 }
 
 impl EnemyType {
-  pub fn list() -> [Self;3] {
-    unsafe {
-      core::array::from_fn(|x| core::mem::transmute(x as u8))
-    }
+  pub const fn list() -> [EnemyType; 4] {
+    const LIST: [EnemyType;4] = [EnemyType::Clyde,
+                                 EnemyType::Blinky,
+                                 EnemyType::Pinky,
+                                 EnemyType::GhostWitch];
+    LIST
   }
 }
 
@@ -151,6 +153,23 @@ impl Enemy {
     let id = rng.next_u64();
     let t = nme_type;
     Enemy { id, t}
+  }
+}
+
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub struct Quest {
+  pub target: EnemyType,
+  pub quota: u64,
+  pub progress: u64,
+}
+
+impl Quest {
+  pub fn new() -> Self {
+    let target = EnemyType::Blinky;
+    let quota = 0;
+    let progress = 0;
+
+    Quest {target, quota, progress}
   }
 }
 
@@ -209,4 +228,8 @@ impl<V> std::ops::Index<IVec> for WrapMap<V> {
     fn index(&self, index: IVec) -> &Self::Output {
       &self.map[&self.rect.wrap(index)]
     }
+}
+
+pub fn roll_chance(rng: &mut Rng, chance: u64) -> bool {
+  rng.next_u64() % 1000 < chance
 }

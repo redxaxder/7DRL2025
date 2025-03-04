@@ -21,11 +21,16 @@ v0.2 "iterable"
    + initial position is outside the map
    + tile placed there blocks a spawn
  + monster turns
- - extermination quest
-   - appearance requirements:
-     - there must be at least one monster type for which there is no ongoing quest
-     - there must be at least 1 of such a monster
-   - on completion, get 5 tiles + quest heal
+ - quests
+    - quests spawn randomly on tile in hand
+    + quest placeholder graphic
+    - quest heal placeholder graphic
+    - display quests to user
+    - extermination quest
+        - appearance requirements:
+            - there must be at least one monster type for which there is no ongoing quest
+            - there must be at least 1 of such a monster
+        - on completion, get 5 tiles + quest heal
  + perfect tile bonus (+1 tile)
  + combat
    + restrict movement when by a monster
@@ -51,7 +56,7 @@ v0.2 "iterable"
    + forest + restrict monster moves
    + road + unrestrict player moves
           + restrict tile placement
-   - town - restrict monster moves
+   + town + restrict monster moves
    - river + restrict tile placement
            + pool extra monster turns
              + exception for roads

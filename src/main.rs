@@ -4,7 +4,10 @@ use rl2025::*;
 
 type RegionId = u16;
 const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
-const MONSTER_SPAWN_CHANCE: u64 = 2; // units are percent
+const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
+const QUEST_SPAWN_CHANCE: u64 = 5; // units are 1/10 percent
+const MIN_QUEST: u64 = 5;
+const MAX_QUEST: u64 = 20;
 const REGION_REWARD_THRESHOLD: usize = 4;
 
 #[derive(Clone)]
@@ -16,6 +19,7 @@ struct SimulationState {
   player_level: i64,
   player_tiles: i64,
   player_next_tile: Tile,
+  next_tile_has_quest: bool,
   player_tile_transform: D8,
   player_speed_penalty: i64,
 
@@ -33,6 +37,8 @@ struct SimulationState {
   enemies: WrapMap<Enemy>,
   rng: Rng,
 
+  quests: WrapMap<Quest>,
+
   player_dmap: DMap,
   nearest_enemy_dmap: DMap,
 }
@@ -46,10 +52,12 @@ impl SimulationState {
       player_level: 1,
       player_tiles: 30,
       player_next_tile: Tile::default(),
+      next_tile_has_quest: false,
       player_tile_transform: D8::E,
       player_speed_penalty: 0,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
+      quests: WrapMap::new(BOARD_RECT),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
       open_regions: Set::new(),
@@ -257,6 +265,12 @@ impl SimulationState {
     self.player_next_tile = tiles::generate(&mut self.rng);
     self.player_tile_transform = D8::E;
     self.player_tiles -= 1;
+
+    // does the next tile have a quest?
+    if roll_chance(&mut self.rng, QUEST_SPAWN_CHANCE) {
+      if let Some(quest) = eligible_for_quest(&self.enemies, &self.quests, &mut self.rng) {
+      }
+    }
   }
 
   pub fn update_player_dmap(&mut self) {
@@ -561,40 +575,41 @@ async fn main() {
     let camera_offset: IVec = display.camera_focus - sim.player_pos;
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
-    //monsters
-    let mut monster_turns = 0;
-    if tile_placed || (player_moved && sim.player_tiles < 1) {
-      monster_turns = 1;
-      monster_turns += sim.player_speed_penalty;
-      sim.player_speed_penalty = 0;
-      sim.update_player_dmap();
-    }
-    while monster_turns > 0 {
-      sim.update_nearest_dmap();
-      //do monster turn
-      for (pos, _) in sim.enemies.clone().iter() {
-        let maybe_pos = enemy_pathfind(&mut sim, *pos);
-        if let Some(new_pos) = maybe_pos {
-          sim.move_enemy(*pos, new_pos);
-        }
-        //debug!("a monster turn happened at {:?}", pos)
+    {//monsters
+      let mut monster_turns = 0;
+      if tile_placed || (player_moved && sim.player_tiles < 1) {
+        monster_turns = 1;
+        monster_turns += sim.player_speed_penalty;
+        sim.player_speed_penalty = 0;
+        sim.update_player_dmap();
       }
-      //spawn monsters maybe
-      for &p in sim.void_frontier.iter() {
-        if sim.enemies.contains_key(p) {
-          // don't spawn a monster if there's already a monster
-          continue;
+      while monster_turns > 0 {
+        sim.update_nearest_dmap();
+        //do monster turn
+        for (pos, _) in sim.enemies.clone().iter() {
+          let maybe_pos = enemy_pathfind(&mut sim, *pos);
+          if let Some(new_pos) = maybe_pos {
+            sim.move_enemy(*pos, new_pos);
+          }
+          //debug!("a monster turn happened at {:?}", pos)
         }
-        if sim.rng.next_u64() % 100 < MONSTER_SPAWN_CHANCE {
-          //spawn a monster in this tile
-          let random_enemy_type =
-            EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-          let nme = Enemy::new(&mut sim.rng, random_enemy_type);
-          sim.enemies.insert(p, nme);
-          //debug!("spawned a monster {:?} at {:?}", nme.t, p)
+        //spawn monsters maybe
+        for &p in sim.void_frontier.iter() {
+          if sim.enemies.contains_key(p) {
+            // don't spawn a monster if there's already a monster
+            continue;
+          }
+          if roll_chance(&mut sim.rng, MONSTER_SPAWN_CHANCE) {
+            //spawn a monster in this tile
+            let random_enemy_type =
+              EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
+            let nme = Enemy::new(&mut sim.rng, random_enemy_type);
+            sim.enemies.insert(p, nme);
+            //debug!("spawned a monster {:?} at {:?}", nme.t, p)
+          }
         }
+        monster_turns -= 1;
       }
-      monster_turns -= 1;
     }
 
     let scale: f32 = f32::min(
@@ -873,4 +888,47 @@ pub fn town_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
     }
   }
   candidates
+}
+
+pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
+                          quests: &WrapMap<Quest>,
+                          rng: &mut Rng) -> Option<Quest> {
+  // we are eligible for a quest if
+  // 1. there is an enemy type that doesn't have a quest yet
+  // 2. there is at least 1 of that enemy already on the map
+  let mut nme_types: Set<EnemyType> = Set::new();
+  let mut nme_counts: Map<EnemyType, u16> = Map::new();
+
+  // initialize
+  for nme_t in EnemyType::list()[0..3].iter() {
+    nme_types.insert(*nme_t);
+    nme_counts.insert(*nme_t, 0);
+  }
+
+  // remove enemy types that already have a quest
+  for (_, quest) in quests.iter() {
+    nme_types.remove(&quest.target);
+  }
+
+  // remove enemy types that don't have any spawned enemies
+  for (_, nme) in enemies.iter() {
+    let count = nme_counts[&nme.t];
+    nme_counts.insert(nme.t, count + 1);
+  }
+  for (nme_t, count) in nme_counts.iter() {
+    if *count == 0 {
+      nme_types.remove(nme_t);
+    }
+  }
+
+  if nme_types.len() > 0 {
+    let selected_type = nme_types[rng.next_u32() as usize % nme_types.len()];
+    let mut quest = Quest::new();
+    let quota = MIN_QUEST + rng.next_u64() % (MAX_QUEST - MIN_QUEST + 1);
+    quest.target = selected_type;
+    quest.quota = quota;
+    Some(quest)
+  } else {
+    None
+  }
 }

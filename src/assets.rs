@@ -19,6 +19,11 @@ pub const HERO: &Img = &Img {
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };
 
+pub const QUEST: &Img = &Img {
+  path: "npc.png",
+  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
+};
+
 pub const fn enemy(nme: EnemyType) -> Img {
   let rect = Rect{x: 0., y: 0., w: 128., h: 128. };
   let path = match nme {
@@ -26,6 +31,7 @@ pub const fn enemy(nme: EnemyType) -> Img {
     EnemyType::Blinky   => "nme2.png",
     EnemyType::Pinky => "nme3.png",
     EnemyType::GhostWitch  => "nme4.png",
+    _ => "",
   };
   Img { rect, path }
 }
