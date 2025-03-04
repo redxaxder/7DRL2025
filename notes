@@ -49,7 +49,7 @@ v0.2 "iterable"
  - stepping on quest heal consumes 
    + (placeholder art)
  - terrain effects:
-   - forest - restrict monster moves
+   + forest + restrict monster moves
    + road + unrestrict player moves
           + restrict tile placement
    - town - restrict monster moves

@@ -213,7 +213,7 @@ impl SimulationState {
       v.clear();
       for d in Dir4::list() {
         let rid = self.regions[p][d.index()];
-        let terrain = self.board[p].contents[d.index()];
+        // let terrain = self.board[p].contents[d.index()];
         if rid == RegionId::MAX { continue; }
         v.push(rid);
       }
@@ -495,9 +495,6 @@ async fn main() {
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
       if !player_moved && can_move { // move player
         sim.player_pos = target;
-
-
-
         // TODO: restricted tiles
         player_moved = true;
         debug!("player: {:?}", sim.player_pos);
@@ -727,57 +724,7 @@ async fn main() {
   }
 }
 
-fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
-  let mut candidates: Vec<IVec> = Vec::new();
-  // handle the just-spawned void-camping case
-  if sim.board[pos] == Tile::default() {
-    for d in Dir4::list() {
-      let candidate = pos + IVec::from(d);
-      if sim.board[candidate] != Tile::default() {
-        candidates.push(candidate);
-      }
-    }
-  } else {
-    match sim.enemies[pos].t {
-      EnemyType::Clyde => {
-        for d in Dir4::list() {
-          let candidate = pos + IVec::from(d);
-          if sim.board[candidate] != Tile::default() {
-            candidates.push(candidate);
-          }
-        }
-      }
-      EnemyType::Blinky => {
-        let mut min_dir: Dir4 = Dir4::Right;
-        let mut min: i16 = i16::max_value();
-        for d in Dir4::list() {
-          let c = pos + IVec::from(d);
-          if sim.player_dmap[c] < min && sim.board[c] != Tile::default() {
-            min = sim.player_dmap[c];
-            min_dir = d;
-          }
-        }
-        candidates.push(pos + min_dir.into());
-      }
-      EnemyType::Pinky => {
-        let mut max_dir: Dir4 = Dir4::Right;
-        let mut max: i16 = 0;
-        for d in Dir4::list() {
-          let c = pos + IVec::from(d);
-          if sim.nearest_enemy_dmap[c] > max && sim.board[c] != Tile::default() {
-            max = sim.nearest_enemy_dmap[c];
-            max_dir = d;
-          }
-        }
-        candidates.push(pos + max_dir.into());
-        // debug!("Pinky candidate {:?}", pos + max_dir.into());
-      }
-      EnemyType::GhostWitch => {
-        // boss does not move
-        candidates.push(pos);
-      }
-    }
-  }
+fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) -> Option<Position> {
   // filter out invalid tiles
   let mut valid: Vec<IVec> = Vec::new();
   for c in candidates.drain(0..) {
@@ -791,4 +738,82 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: IVec) -> Option<IVec> {
   else {
     None
   }
+}
+
+fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
+  // handle the just-spawned void-camping case
+  if sim.board[pos] == Tile::default() {
+    let mut candidates: Vec<IVec> = Vec::new();
+    for d in Dir4::list() {
+      let candidate = pos + IVec::from(d);
+      if sim.board[candidate] != Tile::default() {
+        candidates.push(candidate);
+      }
+    }
+    return select_candidate(candidates, sim);
+  }
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board); 
+  if valid.len() == 0 {
+    // no forest edges means anything is a candidate
+    valid = Dir4::list().into();
+  }
+  // if a monster did not take a forced move, we should pathfind it
+  let mut candidates: Vec<IVec> = Vec::new();
+  match sim.enemies[pos].t {
+    EnemyType::Clyde => {
+      for d in valid {
+        let candidate = pos + IVec::from(d);
+        if sim.board[candidate] != Tile::default() {
+          candidates.push(candidate);
+        }
+      }
+    }
+    EnemyType::Blinky => {
+      let mut min_dir: Dir4 = Dir4::Right;
+      let mut min: i16 = i16::max_value();
+      for d in valid {
+        let c = pos + IVec::from(d);
+        if sim.player_dmap[c] < min && sim.board[c] != Tile::default() {
+          min = sim.player_dmap[c];
+          min_dir = d;
+        }
+      }
+      candidates.push(pos + min_dir.into());
+    }
+    EnemyType::Pinky => {
+      let mut max_dir: Dir4 = Dir4::Right;
+      let mut max: i16 = 0;
+      for d in valid {
+        let c = pos + IVec::from(d);
+        if sim.nearest_enemy_dmap[c] > max && sim.board[c] != Tile::default() {
+          max = sim.nearest_enemy_dmap[c];
+          max_dir = d;
+        }
+      }
+      candidates.push(pos + max_dir.into());
+      // debug!("Pinky candidate {:?}", pos + max_dir.into());
+    }
+    EnemyType::GhostWitch => {
+      // boss does not move
+      candidates.push(pos);
+    }
+  }
+  select_candidate(candidates, sim)
+}
+
+pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
+  // right up left down (matching dir4.index)
+  let mut candidates: Vec<Dir4> = Vec::new();
+  let tile: Tile = board[*pos];
+  for ix in 0..4 {
+    let dir: Dir4 = Dir4::list()[ix];
+    let neighbor: Tile = board[*pos + dir.into()];
+    let edge1 = tile.contents[ix];
+    let edge2 = neighbor.contents[dir.opposite().index()];
+    debug!("{:?} - {:?} - {:?} - {:?}", edge1, pos, edge2, *pos + IVec::from(dir));
+    if edge1 == Terrain::Forest && edge2 == Terrain::Forest {
+      candidates.push(dir);
+    }
+  }
+  candidates
 }
