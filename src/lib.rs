@@ -143,7 +143,9 @@ impl Enemy {
   }
 }
 
-pub fn dmap(rect: IRect, focus: Position) -> Buffer2D<i16> {
+type DMap = Buffer2D<i16>;
+
+pub fn simple_dmap(rect: IRect, focus: Position) -> DMap {
   let new_rect = rect.clone();
   let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
   for pos in rect.iter() {
@@ -152,12 +154,18 @@ pub fn dmap(rect: IRect, focus: Position) -> Buffer2D<i16> {
   dmap
 }
 
-// pub fn nearest_dmap(rect: IRect, foci: Set<Position>) {
-//   let new_rect = rect.clone();
-//   let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
-//   for pos in rect.iter() {
-//     let mut nearest = foci[0];
-//     for f in foci {
-//     }
-//   }
-// }
+pub fn nearest_dmap(rect: IRect, foci: Set<Position>) -> DMap {
+  let new_rect = rect.clone();
+  let mut dmap: Buffer2D<i16> = Buffer2D::new(0, new_rect);
+  for pos in rect.iter() {
+    let mut min_dist = i16::max_value();
+    for f in foci.iter() {
+      let dist = pos.distance1(*f);
+      if dist < min_dist {
+        min_dist = dist;
+      }
+    }
+    dmap[pos] = min_dist;
+  }
+  dmap
+}

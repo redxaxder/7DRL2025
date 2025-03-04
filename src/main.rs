@@ -243,6 +243,8 @@ impl SimulationState {
     self.player_tiles -= 1;
   }
 
+  pub fn update_dmaps(&mut self) {}
+
 }
 
 #[macroquad::main("7drl")]
@@ -324,7 +326,7 @@ async fn main() {
         //debug!("a monster turn happened at {:?}", pos)
       }
     }
-
+    
     let scale: f32 = f32::min(
       screen_width() / display.dim.x as f32,
       screen_height() / display.dim.y as f32,
@@ -421,11 +423,11 @@ async fn main() {
         WHITE,
         DrawTextureParams {
           dest_size: Some(vec2(
-                         scale * display.dim.x as f32,
-                         scale * display.dim.y as f32,
-                     )),
-                     flip_y: true,
-                     ..Default::default()
+            scale * display.dim.x as f32,
+            scale * display.dim.y as f32,
+          )),
+          flip_y: true,
+          ..Default::default()
         },
       );
     }
