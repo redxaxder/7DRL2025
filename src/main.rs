@@ -17,6 +17,7 @@ struct SimulationState {
   player_tiles: i64,
   player_next_tile: Tile,
   player_tile_transform: D8,
+  player_speed_penalty: i64,
 
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
@@ -46,6 +47,7 @@ impl SimulationState {
       player_tiles: 30,
       player_next_tile: Tile::default(),
       player_tile_transform: D8::E,
+      player_speed_penalty: 0,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
@@ -364,7 +366,7 @@ async fn main() {
   sim.next_tile();
 
   let mut resources = Resources::new(ASSETS);
-  for path in LOAD_ME { resources.load_texture(path, FilterMode::Nearest); }
+  for path in LOAD_ME { resources.load_texture(path, FilterMode::Linear); }
 
   let display_dim: Vec2 = DISPLAY_GRID.dim();
   let mut display = Display::new(resources, display_dim);
@@ -420,7 +422,6 @@ async fn main() {
           let mut distance: u8 = 0;
           frontier.push(target);
           while frontier.len() > 0 {
-            debug!("find crowd {}", distance);
             while let Some(cursor) = frontier.pop() {
               if result.contains_key(&cursor) { continue; }
               if !sim.enemies.contains_key(cursor) { continue; }
@@ -446,7 +447,6 @@ async fn main() {
             let mut vacated = target;
             let mut dist = 0;
             'scooch: loop {
-              debug!("scooch {}", dist);
               for d in Dir4::list() {
                 let neighbor = vacated + d.into();
                 if let Some(&dist2) = crowd.get(&neighbor) {
@@ -469,7 +469,7 @@ async fn main() {
         }
       }
 
-      let has_road = {
+      let using_road = {
         // two cases:
         // 1) there is an existing road here we can take
         // 2) there is a half road here, with the other half
@@ -491,13 +491,30 @@ async fn main() {
         first_half && second_half
       };
 
-      can_move = can_move && (!needs_road || has_road);
+      can_move = can_move && (!needs_road || using_road);
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
       if !player_moved && can_move { // move player
+
+        let target_is_slow: bool = {
+          let mut rivers = 0;
+          let t = sim.board[target];
+          for i in 0..4 {
+            if t.contents[i] == Terrain::River { rivers += 1; }
+          }
+          rivers >= 2
+        };
+        let edge_is_slow: bool = {
+          let t0 = sim.board[sim.player_pos]
+            .contents[playermove.index()];
+          let t1 = sim.board[target]
+            .contents[playermove.opposite().index()];
+          t0 == Terrain::River
+            && t1 == Terrain::River
+        };
+
         sim.player_pos = target;
-        // TODO: restricted tiles
         player_moved = true;
-        debug!("player: {:?}", sim.player_pos);
+        //debug!("player: {:?}", sim.player_pos);
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
@@ -532,6 +549,10 @@ async fn main() {
           for &regionid in just_completed.iter() {
             sim.reward_completed_region(regionid);
           }
+        } else { // we stepped on an existing tile
+          if (target_is_slow || edge_is_slow) && !using_road {
+            sim.player_speed_penalty += 1;
+          }
         }
       }
     }
@@ -541,12 +562,15 @@ async fn main() {
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
     //monsters
+    let mut monster_turns = 0;
     if tile_placed || (player_moved && sim.player_tiles < 1) {
-
+      monster_turns = 1;
+      monster_turns += sim.player_speed_penalty;
+      sim.player_speed_penalty = 0;
       sim.update_player_dmap();
+    }
+    while monster_turns > 0 {
       sim.update_nearest_dmap();
-
-
       //do monster turn
       for (pos, _) in sim.enemies.clone().iter() {
         let maybe_pos = enemy_pathfind(&mut sim, *pos);
@@ -555,7 +579,6 @@ async fn main() {
         }
         //debug!("a monster turn happened at {:?}", pos)
       }
-
       //spawn monsters maybe
       for &p in sim.void_frontier.iter() {
         if sim.enemies.contains_key(p) {
@@ -571,6 +594,7 @@ async fn main() {
           //debug!("spawned a monster {:?} at {:?}", nme.t, p)
         }
       }
+      monster_turns -= 1;
     }
 
     let scale: f32 = f32::min(
@@ -619,7 +643,7 @@ async fn main() {
       }
 
       { // Draw HUD
-        let font_size = 100;
+        let font_size = 60;
         let font_scale = 1.;
 
         let margin = 15.;
@@ -646,25 +670,28 @@ async fn main() {
         let y = hud_top + (0.5 * leftover) + textdim.offset_y;
         draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
 
-
-        let mut cursor = margin;
         // Current/Max HP
-        let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
-        let textdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-        let leftover = hudbar_height - textdim.height;
-        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-        draw_text(&hp, cursor, y, font_size as f32, WHITE);
-        cursor += textdim.width + margin;
-
-
         // Current/Next XP
+        let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
+        let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
         let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
-        let textdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
-        let leftover = hudbar_height - textdim.height;
-        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-        draw_text(&xp, cursor, y, font_size as f32, WHITE);
-        //cursor += textdim.width + margin;
+        let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
+        let leftover = hudbar_height - hpdim.height - xpdim.height;
+        let hpy = hud_top + (0.33 * leftover) + hpdim.offset_y;
+        let xpy = hud_top + hpdim.height
+          + (0.66 * leftover) + xpdim.offset_y;
+        draw_text(&hp, margin, hpy, font_size as f32, WHITE);
+        draw_text(&xp, margin, xpy, font_size as f32, WHITE);
 
+
+        // Speed penalty
+        if sim.player_speed_penalty > 0 {
+          let penalty = format!("X {}", sim.player_speed_penalty +1);
+          let pdim = measure_text(&penalty, None, font_size, font_scale);
+          let y = hud_top + 0.5 * (hudbar_height - pdim.height) + pdim.offset_y;
+          let x = 0.5 * (display.dim.x - pdim.width);
+          draw_text(&penalty,x,y, font_size.into(), WHITE);
+        }
 
       }
 
