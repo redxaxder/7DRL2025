@@ -48,6 +48,12 @@ impl AnimLock {
     }
   }
 
+  pub fn full_positions() -> Self {
+    AnimLock {
+      require: u64::MAX.into(),
+      reserve: u64::MAX.into(),
+    }
+  }
 
   pub fn require(mut self, req: impl Lock) -> Self {
     self.require |= req.to_lock(); //Self::pack_locations(BOUNDS, locs);
@@ -236,6 +242,13 @@ impl AnimationQueue {
     a.lock = AnimLock::full();
   }
 
+  pub fn sync_positions(&mut self) {
+    let a = self.append(empty_animation);
+    a.lock = AnimLock::full_positions();
+  }
+
+  // the bool returned from the function marks if the animation
+  // should still be alive
   pub fn append(
     &mut self,
     func: impl FnMut(Time) -> bool  + 'static

@@ -3,7 +3,6 @@ use include_dir::{Dir, include_dir};
 
 pub const ASSETS: Dir<'static> =  include_dir!("$CARGO_MANIFEST_DIR/assets");
 
-
 pub const LOAD_ME: &[&'static str] = &[
   "hero.png",
   "terrain_placeholder.png",
@@ -13,26 +12,21 @@ pub const LOAD_ME: &[&'static str] = &[
   "nme3.png",
   "nme4.png",
   "nme_unknown.png",
+  "xp.png",
 ];
 
+pub const fn def(path: &'static str) -> Img {
+  Img { path,
+    rect: Rect{x: 0., y: 0., w: 128., h: 128. },
+  }
+}
 
-pub const HERO: Img = Img {
-  path: "hero.png",
-  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
-};
-
-pub const QUEST: Img = Img {
-  path: "npc.png",
-  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
-};
-
-pub const UNKNOWN_ENEMY: Img = Img {
-  path: "nme_unknown.png",
-  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
-};
+pub const XP: Img = def("xp.png");
+pub const HERO: Img = def("hero.png");
+pub const QUEST: Img = def("npc.png");
+pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 
 pub const fn enemy(nme: EnemyType) -> Img {
-  let rect = Rect{x: 0., y: 0., w: 128., h: 128. };
   let path = match nme {
     EnemyType::Clyde  => "nme1.png",
     EnemyType::Blinky   => "nme2.png",
@@ -40,7 +34,7 @@ pub const fn enemy(nme: EnemyType) -> Img {
     EnemyType::GhostWitch  => "nme4.png",
     _ => "",
   };
-  Img { rect, path }
+  def(path)
 }
 
 fn terrain_path(terrain: Terrain) -> &'static str {

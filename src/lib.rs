@@ -1,4 +1,13 @@
+
+pub type Seconds = f64;
+pub type UnitId = u64;
+pub type DMap = Buffer2D<i16>;
+
 pub const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
+pub const PLAYER_UNIT_ID: UnitId = 0;
+
+
+pub const INVISIBLE: Color = Color{r:0.,g:0.,b:0.,a:0.};
 
 
 pub mod display;
@@ -29,7 +38,6 @@ pub mod fov;
 
 pub use macroquad::prelude::*;
 
-pub type Seconds = f64;
 
 pub mod footguns;
 
@@ -122,7 +130,6 @@ impl std::ops::Mul<Tile> for D8 {
   }
 }
 
-pub type UnitId = u64;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
@@ -144,7 +151,6 @@ impl EnemyType {
 }
 
 
-pub const PLAYER_UNIT_ID: UnitId = 0;
 static mut NEXT_UNIT_ID: UnitId = 10;
 fn next_unit_id() -> UnitId {
   unsafe {
@@ -184,7 +190,6 @@ impl Quest {
   }
 }
 
-pub type DMap = Buffer2D<i16>;
 
 #[derive(Clone, Debug)]
 pub struct WrapMap<V> {

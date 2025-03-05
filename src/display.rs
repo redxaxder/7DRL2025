@@ -2,7 +2,7 @@
 use crate::*;
 
 
-pub const CAMERA_TETHER: IRect = IRect {x: -1, y: -1, width: 4, height: 3 };
+pub const CAMERA_TETHER: IRect = IRect {x: -1, y: -2, width: 4, height: 3 };
 
 
 pub const DISPLAY_GRID: Grid = Grid {
@@ -100,13 +100,16 @@ impl Display {
     );
   }
 
+  pub fn pos_rect(&self, position: Vec2) -> Rect {
+    DISPLAY_GRID.rect(position - Vec2::from(self.camera_focus))
+  }
+
   pub fn draw_grid(&self,
     position: Vec2,
     color: Color,
     image: &Img,
   ) {
-    let rect = DISPLAY_GRID.rect(position - Vec2::from(self.camera_focus));
-    self.draw_img(rect, color, image);
+    self.draw_img(self.pos_rect(position), color, image);
   }
 
   pub fn draw_tile(&self, rect: Rect, tile: Tile) {

@@ -71,7 +71,7 @@ v0.2 "iterable"
 v0.3 "qol"
  - end game screen / detection
  - animate particles for
-   - gaining exp
+   + gaining exp
    - gaining tiles
    - gaining hp
    - gaining speed penalty

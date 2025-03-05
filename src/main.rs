@@ -43,15 +43,25 @@ struct SimulationState {
   // Animation stuff
   animations: AnimationQueue,
   ragdolls: Map<UnitId, Ref<Ragdoll>>,
+  particles: Vec<Ref<Particle>>,
+
+  // record where stuff gets drawn in ui
+  hud: Map<HudItem, Rect>,
 }
 
-//#[derive(Clone)]
+#[repr(u8)]
+#[derive(Eq, PartialEq, Clone, Copy)]
+pub enum HudItem{
+  Hp, Xp, Tile, SpeedPenalty, Bar
+}
+
 pub struct Ragdoll {
   pub pos: Vec2,
   pub img: Img,
   pub color: Color,
   pub dead: bool,
 }
+pub type Particle = Ragdoll;
 
 impl SimulationState {
   pub fn new() -> Self {
@@ -82,6 +92,9 @@ impl SimulationState {
       // Animation stuff
       animations: AnimationQueue::new(),
       ragdolls: Map::new(),
+      particles: Vec::new(),
+
+      hud: Map::new(),
     }
   }
 
@@ -402,28 +415,35 @@ impl SimulationState {
     wrap_rect(r, p)
   }
 
-  pub fn slay_enemy(&mut self, at: Position, dir: Dir4) {
-    if let Some(nme) = self.enemies.remove(at) {
-      // enemy is defeated
-      // player takes a hit
-      self.player_hp -= 1;
-      self.player_xp += 1;
-      // credit quests
-      for (_, quest) in self.quests.iter_mut() {
-        if quest.target == nme.t && quest.quota > 0 {
-          quest.quota -= 1;
-        }
+  pub fn slay_enemy(&mut self, at: Position, dir: Dir4, display: &Display) {
+    let Some(nme) = self.enemies.remove(at) else { return; };
+    // enemy is defeated
+    // player takes a hit
+    self.player_hp -= 1;
+    self.player_xp += 1;
+    // credit quests
+    for (_, quest) in self.quests.iter_mut() {
+      if quest.target == nme.t && quest.quota > 0 {
+        quest.quota -= 1;
       }
-
-      // do animation
-      let id = nme.id;
-      let mut velocity: Vec2 = Vec2::from(dir) * 3.;
-      velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
-      velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
-      velocity *= 8.;
-      self.animate_unit_fling(id, at.into(), velocity, 0.2).reserve(id);
-
     }
+
+    // do animation
+    let id = nme.id;
+    let mut velocity: Vec2 = Vec2::from(dir) * 3.;
+    velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
+    velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
+    velocity *= 8.;
+    self.animate_unit_fling(id, at.into(), velocity, 0.2).require(id);
+
+    self.launch_particle(
+      display.pos_rect(Vec2::from(at)).center(),
+      self.hud[&HudItem::Xp].center(),
+      XP,
+      YELLOW,
+      1.,
+      0.03,
+    ).require(id);
   }
 
   fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
@@ -480,6 +500,48 @@ impl SimulationState {
     })
   }
 
+  pub fn launch_particle(
+    &mut self,
+    from: ScreenCoords,
+    to: ScreenCoords,
+    img: Img,
+    color: Color,
+    kick: f64, // multiplier on initial (random) velocity
+    decay: f64 // percentage of remaining distance remaining after a second
+    ) -> &mut Animation {
+    let p = Ref::new(Particle {
+      pos: from, img,
+      color: INVISIBLE,
+      dead: false
+    });
+
+    let v: Ref<Vec2> = Ref::new({
+      let mut x: f32 = ((self.rng.next_u32() as i32 % 10) - 5) as f32;
+      x = x.signum() * x.abs().sqrt();
+      let mut y = ((self.rng.next_u32() as i32 % 10) - 5) as f32;
+      y = y.signum() * y.abs().sqrt();
+      kick as f32 * Vec2 { x, y }
+    });
+
+    self.particles.push(p.clone());
+    debug!("animations: {}", self.animations.len());
+    debug!("particles: {}", self.particles.len());
+
+    self.animations.append(move |time: Time| {
+      let d = decay.powf(time.delta) as f32;
+      let offset = p.pos - to;
+      unsafe{
+        let it = p.get();
+        it.pos = to + d * offset;
+        it.pos += *v;
+        *v.get() *= d;
+        it.color = color;
+        it.dead = to.distance(it.pos) < 20.;
+      }
+      !p.dead
+    })
+  }
+
   pub fn move_player(&mut self, to: Position) {
     let from = self.player_pos;
     self.player_pos = to;
@@ -527,6 +589,11 @@ impl SimulationState {
     }
     for dead in died {
       self.ragdolls.remove(&dead);
+    }
+    for i in (0.. self.particles.len()).rev() {
+      if self.particles[i].dead {
+        self.particles.remove(i);
+      }
     }
   }
 }
@@ -619,10 +686,10 @@ async fn main() {
           result
         };
         if crowd.len() > 0 { // fight!
-          let mut speed_mul = 1.;
+          let mut speed_mul: f64 = 1.;
           while sim.enemies.contains_key(target) {
             speed_mul += 0.5;
-            sim.slay_enemy(target, playermove);
+            sim.slay_enemy(target, playermove, &display);
             // enemies behind move up
             let mut vacated = target;
             let mut dist = 0;
@@ -647,9 +714,8 @@ async fn main() {
         } else { // nobody in this spot to fight
           needs_road = true;
         }
-        sim.animations.sync()
-      }
 
+      }
       let using_road = {
         // two cases:
         // 1) there is an existing road here we can take
@@ -697,7 +763,7 @@ async fn main() {
         sim.maybe_complete_quest();
 
         player_moved = true;
-        debug!("player: {:?}", sim.player_pos);
+        //debug!("player: {:?}", sim.player_pos);
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
@@ -745,6 +811,7 @@ async fn main() {
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
     {//monsters
+      sim.animations.sync_positions();
       let mut monster_turns = 0;
       if tile_placed || (player_moved && sim.player_tiles < 1) {
         monster_turns = 1;
@@ -840,53 +907,80 @@ async fn main() {
         let font_scale = 1.;
 
         let margin = 15.;
-        let sz = DISPLAY_GRID.tile_size;
-        let hudbar_height = sz.y + 2. * margin;
-        let hud_top = display.dim.y - hudbar_height;
-        draw_rectangle(0.,hud_top,display.dim.x, hudbar_height, DARKGRAY);
+        let sz = DISPLAY_GRID.full_tile_size();
 
-
-        // Next Tile
-        let r = Rect {
-          x: display.dim.x - sz.x - margin,
-          y: hud_top + margin ,
-          w: sz.x,
-          h: sz.y
-        };
-        display.draw_tile(r, sim.player_current_tile());
-        if let Some(_) = sim.next_quest {
-          display.draw_img(r, BLACK, &QUEST);
+        { // Bar
+          let x = 0.;
+          let h = sz.y + 2. * margin;
+          let y = display.dim.y - h;
+          let w = display.dim.x;
+          let rect = Rect { x, y, w, h };
+          sim.hud.insert(HudItem::Bar, rect);
+          draw_rectangle(x, y, w, h, DARKGRAY);
         }
 
-        // Remaining tiles
-        let remaining_tiles = format!("{}", sim.player_tiles);
-        let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
-        let leftover = hudbar_height - textdim.height;
-        let x = r.x - textdim.width - margin;
-        let y = hud_top + (0.5 * leftover) + textdim.offset_y;
-        draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
+        { // Next Tile
+          let hudbar: Rect = sim.hud[&HudItem::Bar];
+          let r = Rect {
+            x: hudbar.w - sz.x - margin,
+            y: hudbar.y + margin ,
+            w: sz.x,
+            h: sz.y
+          };
+          sim.hud.insert(HudItem::Tile, r);
+          display.draw_tile(r, sim.player_current_tile());
+          if let Some(_) = sim.next_quest {
+            display.draw_img(r, BLACK, &QUEST);
+          }
+        }
 
-        // Current/Max HP
-        // Current/Next XP
-        let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
-        let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-        let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
-        let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
-        let leftover = hudbar_height - hpdim.height - xpdim.height;
-        let hpy = hud_top + (0.33 * leftover) + hpdim.offset_y;
-        let xpy = hud_top + hpdim.height
-          + (0.66 * leftover) + xpdim.offset_y;
-        draw_text(&hp, margin, hpy, font_size as f32, WHITE);
-        draw_text(&xp, margin, xpy, font_size as f32, WHITE);
+        { // Remaining tiles
+          let r = sim.hud[&HudItem::Tile];
+          let bar = sim.hud[&HudItem::Bar];
+          let remaining_tiles = format!("{}", sim.player_tiles);
+          let remaining_tiles = format!("{}", sim.player_tiles);
+          let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
+          let leftover = bar.h - textdim.height;
+          let x = r.x - textdim.width - margin;
+          let y = bar.y + (0.5 * leftover) + textdim.offset_y;
+          draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
+        }
+
+        { // Current/Max HP and XP
+          let bar = sim.hud[&HudItem::Bar];
+          let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
+          let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
+          let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
+          let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
+          let leftover = bar.h - hpdim.height - xpdim.height;
+          let hpr = Rect {
+            x: margin,
+            w: hpdim.width,
+            h: hpdim.height,
+            y: bar.y + (0.33 * leftover),
+          };
+          let xpr = Rect {
+            x: margin,
+            w: xpdim.width,
+            h: xpdim.height,
+            y: bar.y + (0.66 * leftover) + hpr.h,
+          };
+          draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, WHITE);
+          draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, WHITE);
+          sim.hud.insert(HudItem::Hp, hpr);
+          sim.hud.insert(HudItem::Xp, xpr);
+        }
 
 
-        // Speed penalty
-        if sim.player_speed_penalty > 0 {
-          let penalty = format!("X {}", sim.player_speed_penalty +1);
-          let pdim = measure_text(&penalty, None, font_size, font_scale);
-          let y = hud_top + 0.5 * (hudbar_height - pdim.height) + pdim.offset_y;
-          let x = 0.5 * (display.dim.x - pdim.width);
-          draw_text(&penalty,x,y, font_size.into(), WHITE);
+        { // Speed penalty
+          let bar = sim.hud[&HudItem::Bar];
+          if sim.player_speed_penalty > 0 {
+            let penalty = format!("X {}", sim.player_speed_penalty +1);
+            let pdim = measure_text(&penalty, None, font_size, font_scale);
+            let y = bar.y + 0.5 * (bar.h - pdim.height) + pdim.offset_y;
+            let x = 0.5 * (display.dim.x - pdim.width);
+            draw_text(&penalty,x,y, font_size.into(), WHITE);
+          }
         }
 
       }
@@ -915,6 +1009,13 @@ async fn main() {
         //  let py = r.y + (0.5 * leftovery) + textdim.offset_y + 30.;
         //  draw_text(&number, px, py, font_size as f32, WHITE);
         // }
+      }
+
+      { // Draw particles
+        for p in &sim.particles {
+          let r = Rect{x:-32., y: -32., w: 64., h: 64.}.offset(p.pos);
+          display.draw_img(r, p.color, &p.img);
+        }
       }
 
 

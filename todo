@@ -1,12 +1,10 @@
 - particles
 - interleave HUD value updates with animations
-+ enemies dont stand on quest
-- tiles from extermination awarded before pickup
+- award tiles from extermination before pickup
+- erase quest on hand tile when discarding
+- allow new quests of type if previous is complete but uncollected
 
-+ spooky enemy when in void
 
-+ fewer enemies
-+ enemies dont rudely step on player's toes
 - starting tile configuration
 - animate quest npcs
 + different rng every session
@@ -21,3 +19,7 @@
 + draw player
 + get input
 + evolve sim after input
++ spooky enemy when in void
++ enemies dont stand on quest
++ fewer enemies
++ enemies dont rudely step on player's toes
