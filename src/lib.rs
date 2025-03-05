@@ -173,16 +173,14 @@ impl Enemy {
 pub struct Quest {
   pub target: EnemyType,
   pub quota: u64,
-  pub progress: u64,
 }
 
 impl Quest {
   pub fn new() -> Self {
     let target = EnemyType::Blinky;
     let quota = 0;
-    let progress = 0;
 
-    Quest {target, quota, progress}
+    Quest {target, quota}
   }
 }
 
@@ -231,6 +229,18 @@ impl<V> WrapMap<V> {
 
   pub fn iter(&self) -> Iter<IVec, V> {
     self.map.iter()
+  }
+
+  pub fn entry(&mut self, k: IVec) -> Entry<IVec, V> {
+    self.map.entry(k)
+  }
+
+  pub fn get_mut(&mut self, k: IVec) -> Option<&mut V> {
+    self.map.get_mut(&k)
+  }
+
+  pub fn iter_mut(&mut self) -> IterMut<IVec, V> {
+    self.map.iter_mut()
   }
 
 }

@@ -21,18 +21,18 @@ v0.2 "iterable"
    + initial position is outside the map
    + tile placed there blocks a spawn
  + monster turns
- - quests
+ + quests
     + quests spawn randomly on tile in hand
       + quests are visible in hand
     + quest placeholder graphic
-    - quest heal placeholder graphic
-    - display quests to user
+    + quest heal placeholder graphic
+    + display quests to user
       + quest npc is on map
-    - extermination quest
+    + extermination quest
         + appearance requirements:
             + there must be at least one monster type for which there is no ongoing quest
             + there must be at least 1 of such a monster
-        - on completion, get 5 tiles + quest heal
+        + on completion, get 5 tiles + quest heal
  + perfect tile bonus (+1 tile)
  + combat
    + restrict movement when by a monster
@@ -52,7 +52,7 @@ v0.2 "iterable"
  + complete region
    + get size - 4 exp
    + get 1 tile
- - stepping on quest heal consumes 
+ + stepping on quest heal consumes 
    + (placeholder art)
  - terrain effects:
    + forest + restrict monster moves
@@ -77,6 +77,7 @@ v0.3 "qol"
    - approach player
    - flees other monsters, default random
  - animate movement
+ - quest speech bubbles
  - art:
    - player
    - monsters

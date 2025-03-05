@@ -394,6 +394,18 @@ impl SimulationState {
 
   pub fn slay_enemy(&mut self, at: Position, dir: Dir4) {
     if let Some(nme) = self.enemies.remove(at) {
+      // enemy is defeated
+      // player takes a hit
+      self.player_hp -= 1;
+      self.player_xp += 1;
+      // credit quests
+      for (_, quest) in self.quests.iter_mut() {
+        if quest.target == nme.t && quest.quota > 0 {
+          quest.quota -= 1;
+        }
+      }
+
+      // do animation
       let id = nme.id;
       let mut velocity: Vec2 = Vec2::from(dir) * 3.;
       velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
@@ -464,6 +476,16 @@ impl SimulationState {
     self.player_pos = to;
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), 0.3)
       .reserve(&[from,to]);
+  }
+
+  pub fn maybe_complete_quest(&mut self) {
+    if let Some(quest) = self.quests.get(self.player_pos) {
+      if quest.quota < 1 {
+        self.quests.remove(self.player_pos);
+        self.player_tiles += 5;
+        self.player_hp = self.player_hp_max;
+      }
+    }
   }
 
   // 2- perfect match
@@ -590,10 +612,6 @@ async fn main() {
         if crowd.len() > 0 { // fight!
           while sim.enemies.contains_key(target) {
             sim.slay_enemy(target, playermove);
-            // enemy is defeated
-            // player takes a hit
-            sim.player_hp -= 1;
-            sim.player_xp += 1;
             // enemies behind move up
             let mut vacated = target;
             let mut dist = 0;
@@ -665,6 +683,7 @@ async fn main() {
         };
 
         sim.move_player(target);
+        sim.maybe_complete_quest();
 
         player_moved = true;
         debug!("player: {:?}", sim.player_pos);
@@ -783,7 +802,16 @@ async fn main() {
         let r = DISPLAY_GRID.rect(p - display.camera_focus);
         display.draw_tile(r, tile);
         if sim.quests.contains_key(p) {
+          let quest = sim.quests[p];
           display.draw_img(r, BLACK, &QUEST);
+          let quest_text = format!("Kill {:?} x {}", quest.target, quest.quota);
+          let font_size = 60;
+          let font_scale = 1.;
+          let textdim: TextDimensions = measure_text(&quest_text, None, font_size, font_scale);
+          let margin = 0.;
+          let x = r.x - textdim.width - margin;
+          let y = r.y + textdim.offset_y;
+          draw_text(&quest_text, x, y, font_size.into(), BLACK);
         }
       }
 
@@ -1048,8 +1076,10 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
 
   // remove enemy types that don't have any spawned enemies
   for (_, nme) in enemies.iter() {
-    let count = nme_counts[&nme.t];
-    nme_counts.insert(nme.t, count + 1);
+    if nme_counts.contains_key(&nme.t) {
+      let count = nme_counts[&nme.t];
+      nme_counts.insert(nme.t, count + 1);
+    }
   }
   nme_counts = nme_counts
     .iter()
