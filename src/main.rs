@@ -8,6 +8,7 @@ type RegionId = u16;
 const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
 const REGION_REWARD_THRESHOLD: usize = 4;
+const NUM_BOSSES: usize = 15;
 
 const STARTING_HP: i64 = 5;
 const STARTING_TILES: i64 = 30;
@@ -131,12 +132,17 @@ impl SimulationState {
     sim.place_tile(Position { x: -1, y: -1 }, boss_lair_tiles[6]);
     sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
     sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
-    let boss = Enemy::new(EnemyType::GhostWitch);
-    sim.enemies.insert(IVec::ZERO, boss);
-    sim.ragdoll_ref(boss.id);
-    let ragdoll = sim.ragdolls.get_mut(&boss.id).unwrap();
-    ragdoll.img = enemy(boss.t);
+    sim.spawn_enemy(EnemyType::GhostWitch, IVec::ZERO);
     sim
+  }
+
+  pub fn spawn_enemy(&mut self, t: EnemyType, at: Position) {
+    let nme = Enemy::new(t);
+    self.enemies.insert(at, nme);
+    let rdr = self.ragdoll_ref(nme.id);
+    if (self.board[at] != Tile::default()) {
+      unsafe { rdr.get().img = enemy(nme.t); }
+    }
   }
 
   pub fn player_level_up(&mut self) {
@@ -706,6 +712,18 @@ async fn main() {
       // do combat
 
       if in_combat {
+        if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
+          let mut speed_mul: f64 = 1.;
+          let mut delay = 0.;
+          for _ in 0..NUM_BOSSES-1 {
+            let id = sim.enemies.get(target).unwrap().id;
+            delay += 0.3/speed_mul;
+            sim.animations.append_empty(delay).reserve(id);
+            sim.slay_enemy(target, playermove, &display);
+            sim.spawn_enemy(EnemyType::GhostWitch, target);
+            speed_mul += 0.5;
+          }
+        }
         let crowd: Map<Position, u8> = {
           // calculates the crowd of enemies we're trying to fight
           // each occupied position is put into the map, along with

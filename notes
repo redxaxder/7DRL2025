@@ -32,7 +32,10 @@ v0.2 "iterable"
         + appearance requirements:
             + there must be at least one monster type for which there is no ongoing quest
             + there must be at least 1 of such a monster
-        + on completion, get 5 tiles + quest heal
+        - on completion, get 5 tiles
+        - on completion, drop quest heal item
+        - heal item heals player
+        - monsters can't step on it
  + perfect tile bonus (+1 tile)
  + combat
    + restrict movement when by a monster
@@ -42,13 +45,12 @@ v0.2 "iterable"
  + exp system
    + start with 3hp / 3 level exp
    + on level up: full heal, +1 max hp, +4 level exp
- - display
+ + display
    + hp
    + total exp
    + exp-to-level
    + remaining tiles
    + upcoming monster turns
-   - # available quest heals
  + complete region
    + get size - 4 exp
    + get 1 tile
@@ -66,9 +68,9 @@ v0.2 "iterable"
    + grass + no changes. just didn't want to leave you out, bro
  - victory
    - collect mcguffin which starts under a monster
-     - 4th monster type that doesn't take a turn
+     + 4th monster type that doesn't take a turn
        + spawns on map with starting tiles
-     - backup monsters stream in from a unique cave tile
+     + backup monsters stream in from a unique cave tile
 v0.3 "qol"
  - end game screen / detection
  - animate particles for

@@ -193,13 +193,13 @@ fn random_terrain(rng: &mut Rng) -> Terrain {
 pub fn boss_lair(rng: &mut Rng) -> [Tile;9] {
   [
   Tile { contents: [Road, random_terrain(rng), random_terrain(rng), Road, Road]},
-  Tile { contents: [Road, random_terrain(rng), Road, random_terrain(rng), Road]},
+  Tile { contents: [Road, random_terrain(rng), Road, Forest, Road]},
   Tile { contents: [random_terrain(rng), random_terrain(rng), Road, Road, Road]},
-  Tile { contents: [random_terrain(rng), Road, random_terrain(rng), Road,  Road]},
-  Tile { contents: [random_terrain(rng), random_terrain(rng), random_terrain(rng), random_terrain(rng), None]},
-  Tile { contents: [random_terrain(rng), Road, random_terrain(rng), Road,  Road]},
+  Tile { contents: [Forest, Road, random_terrain(rng), Road,  Road]},
+  Tile { contents: [Forest, Forest, Forest, Forest, None]},
+  Tile { contents: [random_terrain(rng), Road, Forest, Road,  Road]},
   Tile { contents: [Road, Road, random_terrain(rng), random_terrain(rng), Road]},
-  Tile { contents: [Road, random_terrain(rng), Road, random_terrain(rng), Road]},
+  Tile { contents: [Road, Forest, Road, random_terrain(rng), Road]},
   Tile { contents: [random_terrain(rng), Road, Road, random_terrain(rng), Road]},
   ]
 }
