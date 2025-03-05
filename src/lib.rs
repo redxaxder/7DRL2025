@@ -257,3 +257,8 @@ pub fn wrap_rect(rect: Rect, v: Vec2) -> Vec2 {
 fn wrap1f(x: f32, min: f32, width: f32)  -> f32 {
   (x - min).rem_euclid(width) + min
 }
+
+
+pub fn equivalent(p:Position, q:Position) -> bool {
+  BOARD_RECT.wrap(p) == BOARD_RECT.wrap(q)
+}
