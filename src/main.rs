@@ -451,6 +451,8 @@ impl SimulationState {
     velocity *= 8.;
     self.animate_unit_fling(id, at.into(), velocity, 0.2).require(id);
     self.add_hp(-1).require(id);
+    self.animations.append(empty_animation)
+      .require([id, PLAYER_UNIT_ID]);
     self.launch_particle(
       display.pos_rect(Vec2::from(at)).center(),
       self.layout[&HudItem::Xp].center(),
@@ -458,7 +460,7 @@ impl SimulationState {
       YELLOW,
       3.,
       0.03,
-    ).require(id);
+    ).chain();
     self.add_xp(1).chain();
   }
 
@@ -592,7 +594,8 @@ impl SimulationState {
     let from = self.player_pos;
     self.player_pos = to;
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), 0.3)
-      .reserve([from,to]);
+      .reserve([from,to])
+      .reserve(PLAYER_UNIT_ID);
   }
 
   pub fn maybe_complete_quest(&mut self) {
@@ -848,6 +851,12 @@ async fn main() {
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
             sim.player_speed_penalty += 1;
+            let from = display.pos_rect(target.into()).center();
+            let to = sim.layout[&HudItem::SpeedPenalty].center();
+            sim.animations.append(empty_animation).require(target);
+            sim.launch_particle(from, to,
+              TIME, BLUE, 0.4, 0.03
+            ).chain();
           }
         }
       }
@@ -949,7 +958,7 @@ async fn main() {
         );
       }
 
-      { // Draw HUD
+      { // draw HUD
         let font_size = 60;
         let font_scale = 1.;
 
@@ -1020,13 +1029,21 @@ async fn main() {
 
         { // Speed penalty
           let bar = sim.layout[&HudItem::Bar];
+          let icon_rect = Rect{
+            x: bar.w * 0.5,
+            y: bar.y + margin,
+            w: sz.x,
+            h: sz.y,
+          };
+          let text = format!("{}", sim.player_speed_penalty+1);
+          let textdim = measure_text(&text, None, font_size, font_scale);
+          let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
+          let x = icon_rect.x - textdim.width - margin;
           if sim.player_speed_penalty > 0 {
-            let penalty = format!("X {}", sim.player_speed_penalty +1);
-            let pdim = measure_text(&penalty, None, font_size, font_scale);
-            let y = bar.y + 0.5 * (bar.h - pdim.height) + pdim.offset_y;
-            let x = 0.5 * (display.dim.x - pdim.width);
-            draw_text(&penalty,x,y, font_size.into(), WHITE);
+            display.draw_img( icon_rect, BLUE, &TIME);
+            draw_text(&text,x,y, font_size.into(), WHITE);
           }
+          sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
         }
 
       }

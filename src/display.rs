@@ -100,6 +100,8 @@ impl Display {
     );
   }
 
+  // produces a rect for where a tile at this position is
+  // on the screen given current camera state
   pub fn pos_rect(&self, position: Vec2) -> Rect {
     DISPLAY_GRID.rect(position - Vec2::from(self.camera_focus))
   }

@@ -1,5 +1,13 @@
 - particles
+  - hp
+  + speed penalty
+  - tiles
+  + xp
 - interleave HUD value updates with animations
+  - hp
+  - speed penalty
+  - tiles
+  + xp
 - award tiles from extermination before pickup
 - erase quest on hand tile when discarding
 - allow new quests of type if previous is complete but uncollected
