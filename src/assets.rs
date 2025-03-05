@@ -7,6 +7,7 @@ pub const ASSETS: Dir<'static> =  include_dir!("$CARGO_MANIFEST_DIR/assets");
 pub const LOAD_ME: &[&'static str] = &[
   "hero.png",
   "terrain_placeholder.png",
+  "npc.png",
   "nme1.png",
   "nme2.png",
   "nme3.png",
@@ -19,7 +20,7 @@ pub const HERO: Img = Img {
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };
 
-pub const QUEST: &Img = &Img {
+pub const QUEST: Img = Img {
   path: "npc.png",
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };

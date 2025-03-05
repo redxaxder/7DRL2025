@@ -22,14 +22,15 @@ v0.2 "iterable"
    + tile placed there blocks a spawn
  + monster turns
  - quests
-    - quests spawn randomly on tile in hand
+    + quests spawn randomly on tile in hand
+      + quests are visible in hand
     + quest placeholder graphic
     - quest heal placeholder graphic
     - display quests to user
     - extermination quest
-        - appearance requirements:
-            - there must be at least one monster type for which there is no ongoing quest
-            - there must be at least 1 of such a monster
+        + appearance requirements:
+            + there must be at least one monster type for which there is no ongoing quest
+            + there must be at least 1 of such a monster
         - on completion, get 5 tiles + quest heal
  + perfect tile bonus (+1 tile)
  + combat

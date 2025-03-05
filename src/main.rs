@@ -6,8 +6,6 @@ use footguns::Ref;
 type RegionId = u16;
 const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
 const QUEST_SPAWN_CHANCE: u64 = 5; // units are 1/10 percent
-const MIN_QUEST: u64 = 5;
-const MAX_QUEST: u64 = 20;
 const REGION_REWARD_THRESHOLD: usize = 4;
 
 struct SimulationState {
@@ -18,7 +16,7 @@ struct SimulationState {
   player_level: i64,
   player_tiles: i64,
   player_next_tile: Tile,
-  next_tile_has_quest: bool,
+  next_quest: Option<Quest>,
   player_tile_transform: D8,
   player_speed_penalty: i64,
 
@@ -65,7 +63,7 @@ impl SimulationState {
       player_level: 1,
       player_tiles: 30,
       player_next_tile: Tile::default(),
-      next_tile_has_quest: false,
+      next_quest: None,
       player_tile_transform: D8::E,
       player_speed_penalty: 0,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
@@ -285,9 +283,13 @@ impl SimulationState {
 
     // does the next tile have a quest?
     if roll_chance(&mut self.rng, QUEST_SPAWN_CHANCE) {
+      debug!("quest");
       if let Some(quest) = eligible_for_quest(&self.enemies, &self.quests, &mut self.rng) {
+        debug!("{:?}", quest);
+        self.next_quest = Some(quest);
       }
     }
+    debug!("nq {:?}", self.next_quest);
   }
 
   pub fn update_player_dmap(&mut self) {
@@ -794,6 +796,9 @@ async fn main() {
           h: sz.y
         };
         display.draw_tile(r, sim.player_current_tile());
+        if let Some(_) = sim.next_quest {
+          display.draw_img(r, BLACK, &QUEST);
+        }
 
         // Remaining tiles
         let remaining_tiles = format!("{}", sim.player_tiles);
@@ -1014,18 +1019,16 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
   // we are eligible for a quest if
   // 1. there is an enemy type that doesn't have a quest yet
   // 2. there is at least 1 of that enemy already on the map
-  let mut nme_types: Set<EnemyType> = Set::new();
-  let mut nme_counts: Map<EnemyType, u16> = Map::new();
+  let mut nme_counts: Map<EnemyType, u64> = Map::new();
 
   // initialize
   for nme_t in EnemyType::list()[0..3].iter() {
-    nme_types.insert(*nme_t);
     nme_counts.insert(*nme_t, 0);
   }
 
   // remove enemy types that already have a quest
   for (_, quest) in quests.iter() {
-    nme_types.remove(&quest.target);
+    nme_counts.remove(&quest.target);
   }
 
   // remove enemy types that don't have any spawned enemies
@@ -1033,18 +1036,20 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
     let count = nme_counts[&nme.t];
     nme_counts.insert(nme.t, count + 1);
   }
-  for (nme_t, count) in nme_counts.iter() {
-    if *count == 0 {
-      nme_types.remove(nme_t);
-    }
-  }
+  nme_counts = nme_counts
+    .iter()
+    .filter(|(t, c)| **c > 0)
+    .map(|(k,v)| (*k, *v))
+    .collect();
+  debug!("nme_counts {:?}", nme_counts);
 
-  if nme_types.len() > 0 {
+  if nme_counts.len() > 0 {
+    let nme_types: Vec<&EnemyType> = nme_counts.keys().collect();
     let selected_type = nme_types[rng.next_u32() as usize % nme_types.len()];
     let mut quest = Quest::new();
-    let quota = MIN_QUEST + rng.next_u64() % (MAX_QUEST - MIN_QUEST + 1);
-    quest.target = selected_type;
-    quest.quota = quota;
+    let quota = nme_counts.get(selected_type).unwrap();
+    quest.target = *selected_type;
+    quest.quota = *quota;
     Some(quest)
   } else {
     None
