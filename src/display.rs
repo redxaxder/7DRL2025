@@ -157,9 +157,6 @@ impl Display {
         }
 
       }
-      // TODO:
-      // draw special center item if present
-      // eg quest
     }
   }
 }

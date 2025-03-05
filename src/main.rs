@@ -308,9 +308,18 @@ impl SimulationState {
     }
     let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
     if xp_reward > 0 {
-      // TODO: XP particles
-      self.add_xp(xp_reward as i64);
       let from = display.pos_rect(self.player_pos.into()).center();
+      {
+        let to = self.layout[&HudItem::Xp].center();
+        for i in 0..xp_reward {
+          let delay = i as f64 * 0.1;
+          self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+          self.animations.append_empty(delay).chain();
+          self.launch_particle(from, to, XP, YELLOW, 3., 0.03)
+            .chain();
+            self.add_xp(1).chain();
+        }
+      }
       let to = self.layout[&HudItem::Tile].center();
       self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();

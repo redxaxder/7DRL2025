@@ -3,7 +3,7 @@
   + speed penalty
   + tiles
   + xp
-  - xp particles for region completion
+  + xp particles for region completion
 - interleave HUD value updates with animations
   - hp
   x speed penalty
