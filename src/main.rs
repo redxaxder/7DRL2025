@@ -8,6 +8,8 @@ const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
 const REGION_REWARD_THRESHOLD: usize = 4;
 
+const STARTING_HP: i64 = 5;
+
 struct SimulationState {
   player_pos: Position,
   player_hp: i64,
@@ -44,10 +46,28 @@ struct SimulationState {
   animations: AnimationQueue,
   ragdolls: Map<UnitId, Ref<Ragdoll>>,
   particles: Vec<Ref<Particle>>,
+  hud: Ref<Hud>,
 
   // record where stuff gets drawn in ui
-  hud: Map<HudItem, Rect>,
+  layout: Map<HudItem, Rect>,
 }
+
+pub struct Hud {
+  pub xp: i64,
+  pub hp: i64,
+  pub hp_color: Color,
+}
+impl Hud {
+  pub fn new() -> Self {
+    Self {
+      xp: 0,
+      hp: STARTING_HP,
+      hp_color: WHITE,
+    }
+  }
+}
+
+
 
 #[repr(u8)]
 #[derive(Eq, PartialEq, Clone, Copy)]
@@ -67,8 +87,8 @@ impl SimulationState {
   pub fn new() -> Self {
     SimulationState {
       player_pos: IVec::ZERO,
-      player_hp: 5,
-      player_hp_max: 5,
+      player_hp: STARTING_HP,
+      player_hp_max: STARTING_HP,
       player_xp: 0,
       player_level: 1,
       player_tiles: 30,
@@ -93,16 +113,17 @@ impl SimulationState {
       animations: AnimationQueue::new(),
       ragdolls: Map::new(),
       particles: Vec::new(),
+      hud: Ref::new(Hud::new()),
 
-      hud: Map::new(),
+      layout: Map::new(),
     }
   }
 
   pub fn player_level_up(&mut self) {
     if self.player_xp < self.player_xp_next() { return; }
-    self.player_xp -= self.player_xp_next();
+    self.add_xp(-self.player_xp_next());
     self.player_hp_max += 1;
-    self.player_hp = self.player_hp_max;
+    self.full_heal();
     self.player_level += 1;
   }
 
@@ -271,8 +292,6 @@ impl SimulationState {
   }
 
   pub fn reward_completed_region(&mut self, rid: RegionId) {
-    //TODO: actual reward
-
     let (position, dir) = self.region_start[&rid];
     let terrain = self.board[position].contents[dir.index()];
     let size = self.region_sizes[&rid];
@@ -282,7 +301,7 @@ impl SimulationState {
       let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
       if xp_reward > 0 {
         // TODO: UI hints
-        self.player_xp += xp_reward as i64;
+        self.add_xp(xp_reward as i64);
         self.player_tiles += 1;
         debug!("region reward: {} xp 1 tile", xp_reward);
       }
@@ -417,10 +436,6 @@ impl SimulationState {
 
   pub fn slay_enemy(&mut self, at: Position, dir: Dir4, display: &Display) {
     let Some(nme) = self.enemies.remove(at) else { return; };
-    // enemy is defeated
-    // player takes a hit
-    self.player_hp -= 1;
-    self.player_xp += 1;
     // credit quests
     for (_, quest) in self.quests.iter_mut() {
       if quest.target == nme.t && quest.quota > 0 {
@@ -435,15 +450,46 @@ impl SimulationState {
     velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
     velocity *= 8.;
     self.animate_unit_fling(id, at.into(), velocity, 0.2).require(id);
-
+    self.add_hp(-1).require(id);
     self.launch_particle(
       display.pos_rect(Vec2::from(at)).center(),
-      self.hud[&HudItem::Xp].center(),
+      self.layout[&HudItem::Xp].center(),
       XP,
       YELLOW,
-      1.,
+      3.,
       0.03,
     ).require(id);
+    self.add_xp(1).chain();
+  }
+
+  pub fn add_xp(&mut self, amount: i64) -> &mut Animation {
+    self.player_xp += amount;
+    let hud = self.hud.clone();
+    self.animations.append(move |_| unsafe {
+      hud.get().xp += amount;
+      false
+    })
+  }
+
+  pub fn full_heal(&mut self) -> &mut Animation {
+    self.add_hp(self.player_hp_max - self.player_hp)
+  }
+  pub fn add_hp(&mut self, amount: i64) -> &mut Animation {
+    println!("add hp {}", amount);
+    let is_damage = amount < 0;
+    self.player_hp += amount;
+    let hudref = self.hud.clone();
+    let duration = 0.1;
+    self.animations.append(move |time| unsafe {
+      let hud = hudref.get();
+      if is_damage { hud.hp_color = RED; }
+      let more = time.progress(duration) < 1.;
+      if !more {
+        hud.hp_color = WHITE;
+        hud.hp += amount;
+      }
+      more
+    })
   }
 
   fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
@@ -516,9 +562,9 @@ impl SimulationState {
     });
 
     let v: Ref<Vec2> = Ref::new({
-      let mut x: f32 = ((self.rng.next_u32() as i32 % 10) - 5) as f32;
+      let mut x: f32 = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
       x = x.signum() * x.abs().sqrt();
-      let mut y = ((self.rng.next_u32() as i32 % 10) - 5) as f32;
+      let mut y = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
       y = y.signum() * y.abs().sqrt();
       kick as f32 * Vec2 { x, y }
     });
@@ -550,11 +596,12 @@ impl SimulationState {
   }
 
   pub fn maybe_complete_quest(&mut self) {
-    if let Some(quest) = self.quests.get(self.player_pos) {
+    let ppos = self.player_pos;
+    if let Some(quest) = self.quests.get(ppos) {
       if quest.quota < 1 {
         self.quests.remove(self.player_pos);
         self.player_tiles += 5;
-        self.player_hp = self.player_hp_max;
+        self.full_heal().require(ppos);
       }
     }
   }
@@ -915,19 +962,19 @@ async fn main() {
           let y = display.dim.y - h;
           let w = display.dim.x;
           let rect = Rect { x, y, w, h };
-          sim.hud.insert(HudItem::Bar, rect);
+          sim.layout.insert(HudItem::Bar, rect);
           draw_rectangle(x, y, w, h, DARKGRAY);
         }
 
         { // Next Tile
-          let hudbar: Rect = sim.hud[&HudItem::Bar];
+          let hudbar: Rect = sim.layout[&HudItem::Bar];
           let r = Rect {
             x: hudbar.w - sz.x - margin,
             y: hudbar.y + margin ,
             w: sz.x,
             h: sz.y
           };
-          sim.hud.insert(HudItem::Tile, r);
+          sim.layout.insert(HudItem::Tile, r);
           display.draw_tile(r, sim.player_current_tile());
           if let Some(_) = sim.next_quest {
             display.draw_img(r, BLACK, &QUEST);
@@ -935,9 +982,8 @@ async fn main() {
         }
 
         { // Remaining tiles
-          let r = sim.hud[&HudItem::Tile];
-          let bar = sim.hud[&HudItem::Bar];
-          let remaining_tiles = format!("{}", sim.player_tiles);
+          let r = sim.layout[&HudItem::Tile];
+          let bar = sim.layout[&HudItem::Bar];
           let remaining_tiles = format!("{}", sim.player_tiles);
           let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
           let leftover = bar.h - textdim.height;
@@ -947,10 +993,10 @@ async fn main() {
         }
 
         { // Current/Max HP and XP
-          let bar = sim.hud[&HudItem::Bar];
-          let hp = format!("HP: {}/{} ", sim.player_hp, sim.player_hp_max);
+          let bar = sim.layout[&HudItem::Bar];
+          let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
           let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-          let xp = format!("XP: {}/{}", sim.player_xp, sim.player_xp_next());
+          let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
           let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
           let leftover = bar.h - hpdim.height - xpdim.height;
           let hpr = Rect {
@@ -965,15 +1011,15 @@ async fn main() {
             h: xpdim.height,
             y: bar.y + (0.66 * leftover) + hpr.h,
           };
-          draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, WHITE);
+          draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, sim.hud.hp_color);
           draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, WHITE);
-          sim.hud.insert(HudItem::Hp, hpr);
-          sim.hud.insert(HudItem::Xp, xpr);
+          sim.layout.insert(HudItem::Hp, hpr);
+          sim.layout.insert(HudItem::Xp, xpr);
         }
 
 
         { // Speed penalty
-          let bar = sim.hud[&HudItem::Bar];
+          let bar = sim.layout[&HudItem::Bar];
           if sim.player_speed_penalty > 0 {
             let penalty = format!("X {}", sim.player_speed_penalty +1);
             let pdim = measure_text(&penalty, None, font_size, font_scale);
