@@ -1,5 +1,8 @@
+
+- spooky enemy when in void
+
 + fewer enemies
-- enemies dont rudely step on player's toes
++ enemies dont rudely step on player's toes
 - starting tile configuration
 - animate quest npcs
 + different rng every session

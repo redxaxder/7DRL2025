@@ -69,15 +69,19 @@ v0.2 "iterable"
      - 4th monster type that doesn't take a turn
 v0.3 "qol"
  - end game screen / detection
- - animate particles for gaining exp / tiles / hp / monster turns
+ - animate particles for
+   - gaining exp
+   - gaining tiles
+   - gaining hp
+   - gaining speed penalty
  - animate quest completion??
  - restart
- - monster behavior by type
-   - random movement
-   - approach player
-   - flees other monsters, default random
- - animate movement
  - quest speech bubbles
+ + monster behavior by type
+   + random movement
+   + approach player
+   + flees other monsters, default random
+ + animate movement
  - art:
    - player
    - monsters

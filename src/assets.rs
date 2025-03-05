@@ -12,6 +12,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "nme2.png",
   "nme3.png",
   "nme4.png",
+  "nme_unknown.png",
 ];
 
 
@@ -22,6 +23,11 @@ pub const HERO: Img = Img {
 
 pub const QUEST: Img = Img {
   path: "npc.png",
+  rect: Rect{x: 0., y: 0., w: 128., h: 128. },
+};
+
+pub const UNKNOWN_ENEMY: Img = Img {
+  path: "nme_unknown.png",
   rect: Rect{x: 0., y: 0., w: 128., h: 128. },
 };
 

@@ -374,6 +374,13 @@ impl SimulationState {
         self.animate_unit_motion(nme.id, t0, mid, 0.1)
           .reserve(&[from])
           .reserve(&[nme.id]);
+        if self.board[from] == Tile::default() {
+          let rgr = self.ragdoll_ref(nme.id).clone();
+          self.animations.append(move |_time| {
+            unsafe { rgr.get().img = enemy(nme.t); }
+            false
+          }).reserve(&[nme.id]);
+        }
         self.animate_unit_motion(nme.id, mid, t1, 0.1)
           .reserve(&[to])
           .reserve(&[nme.id]);
@@ -420,7 +427,6 @@ impl SimulationState {
     if let Some(rgr) = self.ragdolls.get(&unit_id) {
       (*rgr).clone()
     } else if unit_id == PLAYER_UNIT_ID {
-      // TODO: make player ragdoll
       let rgr = Ref::new(Ragdoll {
         pos: Vec2::from(self.player_pos),
         color: BLACK,
@@ -430,13 +436,13 @@ impl SimulationState {
       self.ragdolls.insert(unit_id, rgr.clone());
       rgr
     } else {
-      let Some((pos, nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
+      let Some((pos, _nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
         panic!("tried to generate ragdoll for an id that doesn't exist")
       };
       let rgr = Ref::new(Ragdoll {
         pos: Vec2::from(*pos),
         color: BLACK,
-        img: enemy(nme.t),
+        img: UNKNOWN_ENEMY,
         dead: false,
       });
       self.ragdolls.insert(unit_id, rgr.clone());
@@ -693,9 +699,9 @@ async fn main() {
           sim.place_tile(sim.player_pos, sim.player_current_tile());
           sim.next_tile();
           tile_placed = true;
-          if sim.enemies.contains_key(sim.player_pos) {
-            // new tiles smoosh monsters
-            sim.enemies.remove(sim.player_pos);
+          // new tiles smoosh monsters
+          if let Some(nme) = sim.enemies.remove(sim.player_pos) {
+            sim.ragdolls.remove(&nme.id);
           }
           //debug!("tiles left: {:?}", sim.player_tiles);
           sim.update_region_sizes();
