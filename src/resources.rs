@@ -24,7 +24,7 @@ impl Resources {
     filter: FilterMode
     ) -> &Texture2D {
     if !self.textures.contains_key(path) {
-      let file = self.assets.get_file(path).unwrap();
+      let file = self.assets.get_file(path).expect(&format!("missing {}", path));
       let t: Texture2D = Texture2D::from_file_with_format(
         file.contents(), None
       );

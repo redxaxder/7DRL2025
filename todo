@@ -1,12 +1,13 @@
 - particles
   - hp
   + speed penalty
-  - tiles
+  + tiles
   + xp
+  - xp particles for region completion
 - interleave HUD value updates with animations
   - hp
-  - speed penalty
-  - tiles
+  x speed penalty
+  + tiles
   + xp
 - award tiles from extermination before pickup
 - erase quest on hand tile when discarding

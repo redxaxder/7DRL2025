@@ -216,7 +216,7 @@ impl SimulationState {
     }
   }
 
-  pub fn place_tile(&mut self, position: Position, tile: Tile, display: &Display) {
+  pub fn place_tile(&mut self, position: Position, tile: Tile) {
     self.board[position] = tile;
 
     { // region tracking
@@ -260,34 +260,6 @@ impl SimulationState {
       // place quest
       if let Some(_) = self.next_quest {
         self.quests.insert(position, self.next_quest.take().unwrap());
-      }
-    }
-
-    { // check for perfect tile bonuses
-      // on placed tile and neighbors
-      let mut to_check = vec!(position);
-      for d in Dir4::list() {
-        to_check.push(position + d.into());
-      }
-      for &p in &to_check {
-        let mut is_matched = true;
-        let ptile = self.board[p];
-
-        for d in Dir4::list() {
-          let ntile = self.board[p + d.into()];
-          if ptile.contents[d.index()]
-            != ntile.contents[d.opposite().index()] {
-            is_matched = false;
-          }
-        }
-        if is_matched {
-          let from = display.pos_rect(p.into()).center();
-          let to = self.layout[&HudItem::Tile].center();
-          self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-          self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
-          self.add_tiles(1).chain();
-          debug!("perfect tile bonus");
-        }
       }
     }
   }
@@ -849,7 +821,9 @@ async fn main() {
                 sim.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
                 sim.add_tiles(1).chain();
               }
-              sim.full_heal().require(ppos);
+              sim.animations.append_empty(0.).require(ppos);
+              // TODO: heal particle
+              sim.full_heal().chain();
             }
           }
         }
@@ -860,7 +834,7 @@ async fn main() {
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
-          sim.place_tile(sim.player_pos, sim.player_current_tile(), &display);
+          sim.place_tile(sim.player_pos, sim.player_current_tile());
           sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
@@ -868,6 +842,35 @@ async fn main() {
             sim.ragdolls.remove(&nme.id);
           }
           sim.update_region_sizes();
+
+
+          { // check for perfect tile bonuses
+            // on placed tile and neighbors
+            let mut to_check = vec!(sim.player_pos);
+            for d in Dir4::list() {
+              to_check.push(sim.player_pos + d.into());
+            }
+            for &p in &to_check {
+              let mut is_matched = true;
+              let ptile = sim.board[p];
+
+              for d in Dir4::list() {
+                let ntile = sim.board[p + d.into()];
+                if ptile.contents[d.index()]
+                  != ntile.contents[d.opposite().index()] {
+                    is_matched = false;
+                }
+              }
+              if is_matched {
+                let from = display.pos_rect(p.into()).center();
+                let to = sim.layout[&HudItem::Tile].center();
+                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+                sim.add_tiles(1).chain();
+                debug!("perfect tile bonus");
+              }
+            }
+          }
 
           // check for completed regions
           // a region was just completed if
