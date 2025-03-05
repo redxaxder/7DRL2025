@@ -5,7 +5,7 @@ use footguns::Ref;
 
 type RegionId = u16;
 const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
-const QUEST_SPAWN_CHANCE: u64 = 5; // units are 1/10 percent
+const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
 const REGION_REWARD_THRESHOLD: usize = 4;
 
 struct SimulationState {
@@ -201,6 +201,11 @@ impl SimulationState {
             self.open_regions.insert(regionid);
           }
         }
+      }
+
+      // place quest
+      if let Some(_) = self.next_quest {
+        self.quests.insert(position, self.next_quest.take().unwrap());
       }
     }
 
@@ -766,6 +771,9 @@ async fn main() {
         let tile = sim.board[p];
         let r = DISPLAY_GRID.rect(p - display.camera_focus);
         display.draw_tile(r, tile);
+        if sim.quests.contains_key(p) {
+          display.draw_img(r, BLACK, &QUEST);
+        }
       }
 
       // draw units

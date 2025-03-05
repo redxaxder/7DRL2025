@@ -1,7 +1,7 @@
-- fewer enemies
++ fewer enemies
 - enemies dont rudely step on player's toes
 - starting tile configuration
-
+- animate quest npcs
 + different rng every session
 + pinkies try to hide from themselves
 + monsters camp in the void and should be forced into non-void

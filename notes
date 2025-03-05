@@ -27,6 +27,7 @@ v0.2 "iterable"
     + quest placeholder graphic
     - quest heal placeholder graphic
     - display quests to user
+      + quest npc is on map
     - extermination quest
         + appearance requirements:
             + there must be at least one monster type for which there is no ongoing quest
