@@ -67,6 +67,7 @@ v0.2 "iterable"
  - victory
    - collect mcguffin which starts under a monster
      - 4th monster type that doesn't take a turn
+       + spawns on map with starting tiles
      - backup monsters stream in from a unique cave tile
 v0.3 "qol"
  - end game screen / detection

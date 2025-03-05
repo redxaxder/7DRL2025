@@ -15,6 +15,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "xp.png",
   "time.png",
   "tile.png",
+  "boss.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -35,7 +36,7 @@ pub const fn enemy(nme: EnemyType) -> Img {
     EnemyType::Clyde  => "nme1.png",
     EnemyType::Blinky   => "nme2.png",
     EnemyType::Pinky => "nme3.png",
-    EnemyType::GhostWitch  => "nme4.png",
+    EnemyType::GhostWitch  => "boss.png",
     _ => "",
   };
   def(path)

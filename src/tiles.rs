@@ -178,6 +178,32 @@ const TABLE: &[(usize, [Terrain;5])] = &[
 
 ];
 
+fn random_terrain(rng: &mut Rng) -> Terrain {
+  let mut t = Terrain::DRAW_ORDER[rng.next_u32() as usize % 5];
+  while t == Terrain::Road {
+    t = Terrain::DRAW_ORDER[rng.next_u32() as usize % 5];
+  }
+  t
+}
+
+// each tile is right up left down (matching dir4.index)
+// [ 1 2 3 ]
+// [ 4 5 6 ]
+// [ 7 8 9 ]
+pub fn boss_lair(rng: &mut Rng) -> [Tile;9] {
+  [
+  Tile { contents: [Road, random_terrain(rng), random_terrain(rng), Road, Road]},
+  Tile { contents: [Road, random_terrain(rng), Road, random_terrain(rng), Road]},
+  Tile { contents: [random_terrain(rng), random_terrain(rng), Road, Road, Road]},
+  Tile { contents: [random_terrain(rng), Road, random_terrain(rng), Road,  Road]},
+  Tile { contents: [random_terrain(rng), random_terrain(rng), random_terrain(rng), random_terrain(rng), None]},
+  Tile { contents: [random_terrain(rng), Road, random_terrain(rng), Road,  Road]},
+  Tile { contents: [Road, Road, random_terrain(rng), random_terrain(rng), Road]},
+  Tile { contents: [Road, random_terrain(rng), Road, random_terrain(rng), Road]},
+  Tile { contents: [random_terrain(rng), Road, Road, random_terrain(rng), Road]},
+  ]
+}
+
 const fn weight() -> usize {
   let mut r = 0;
   let n = TABLE.len();

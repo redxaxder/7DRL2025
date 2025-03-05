@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use rl2025::*;
+use rl2025::tiles::boss_lair;
 use footguns::Ref;
 
 type RegionId = u16;
@@ -88,8 +89,8 @@ pub type Particle = Ragdoll;
 
 impl SimulationState {
   pub fn new() -> Self {
-    SimulationState {
-      player_pos: IVec::ZERO,
+    let mut sim = SimulationState {
+      player_pos: IVec::ONE,
       player_hp: STARTING_HP,
       player_hp_max: STARTING_HP,
       player_xp: 0,
@@ -119,7 +120,23 @@ impl SimulationState {
       hud: Ref::new(Hud::new()),
 
       layout: Map::new(),
-    }
+    };
+    let boss_lair_tiles = boss_lair(&mut sim.rng);
+    sim.place_tile(Position { x: -1, y: 1 }, boss_lair_tiles[0]);
+    sim.place_tile(Position { x: 0, y: 1 }, boss_lair_tiles[1]);
+    sim.place_tile(Position { x: 1, y: 1 }, boss_lair_tiles[2]);
+    sim.place_tile(Position { x: -1, y: 0 }, boss_lair_tiles[3]);
+    sim.place_tile(Position { x: 0, y: 0 }, boss_lair_tiles[4]);
+    sim.place_tile(Position { x: 1, y: 0 }, boss_lair_tiles[5]);
+    sim.place_tile(Position { x: -1, y: -1 }, boss_lair_tiles[6]);
+    sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
+    sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
+    let boss = Enemy::new(EnemyType::GhostWitch);
+    sim.enemies.insert(IVec::ZERO, boss);
+    sim.ragdoll_ref(boss.id);
+    let ragdoll = sim.ragdolls.get_mut(&boss.id).unwrap();
+    ragdoll.img = enemy(boss.t);
+    sim
   }
 
   pub fn player_level_up(&mut self) {
