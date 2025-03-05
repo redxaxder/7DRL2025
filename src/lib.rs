@@ -186,14 +186,16 @@ impl Enemy {
 pub struct Quest {
   pub target: EnemyType,
   pub quota: u64,
+  pub id: u64,
 }
 
 impl Quest {
   pub fn new() -> Self {
     let target = EnemyType::Blinky;
     let quota = 0;
+    let id = next_unit_id();
 
-    Quest {target, quota}
+    Quest {target, quota, id}
   }
 }
 

@@ -9,6 +9,7 @@ const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
 const REGION_REWARD_THRESHOLD: usize = 4;
 const NUM_BOSSES: usize = 15;
+const QUEST_REWARD: i64 = 5;
 
 const STARTING_HP: i64 = 5;
 const STARTING_TILES: i64 = 30;
@@ -753,6 +754,7 @@ async fn main() {
               if result.contains_key(&cursor) { continue; }
               if !sim.enemies.contains_key(cursor) { continue; }
               if sim.board[cursor] == Tile::default() { continue; }
+              if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(cursor) { continue; }
               result.insert(cursor, distance);
               for d in Dir4::list() {
                 let neighbor = cursor + d.into();
@@ -792,6 +794,41 @@ async fn main() {
           }
         } else { // nobody in this spot to fight
           needs_road = true;
+        }
+
+        { // Quest reward, spawn quest items
+          let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
+          let mut i = 0.;
+          let ppos = sim.player_pos;
+          for (p, q) in sim.quests.clone().iter() {
+            if q.quota < 1 {
+              fulfilled_quests.insert(*p, *q);
+              let delay = i * 0.15;
+              let from = display.pos_rect(Vec2::from(*p)).center();
+              let to = sim.layout[&HudItem::Tile].center();
+              sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+              sim.animations.append_empty(delay).chain();
+              for _ in 0..QUEST_REWARD {
+                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1);
+              }
+              sim.add_tiles(QUEST_REWARD).chain();
+              i += 1.;
+            }
+          }
+          sim.animations.append_empty(0.).require(ppos);
+          for p in fulfilled_quests.keys() {
+            sim.quests.remove(*p);
+          }
+
+          // if let Some(quest) = sim.quests.get(ppos) {
+          //   if quest.quota < 1 {
+          //     sim.quests.remove(ppos);
+          //     for i in 0..5 {
+          //       // TODO: heal particle
+          //       sim.full_heal().chain();
+          //     }
+          //   }
+          // }
         }
 
       }
@@ -839,29 +876,6 @@ async fn main() {
         };
 
         sim.move_player(target);
-
-        { // Quest reward
-          let ppos = sim.player_pos;
-          if let Some(quest) = sim.quests.get(ppos) {
-            if quest.quota < 1 {
-              sim.quests.remove(ppos);
-              for i in 0..5 {
-                let delay = f64::from(i) * 0.15;
-                let from = display.pos_rect(ppos.into()).center();
-                let to = sim.layout[&HudItem::Tile].center();
-                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-                sim.animations.append_empty(delay).chain();
-                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
-                sim.add_tiles(1).chain();
-              }
-              sim.animations.append_empty(0.).require(ppos);
-              // TODO: heal particle
-              sim.full_heal().chain();
-            }
-          }
-        }
-
-
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
 

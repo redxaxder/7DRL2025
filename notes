@@ -32,7 +32,7 @@ v0.2 "iterable"
         + appearance requirements:
             + there must be at least one monster type for which there is no ongoing quest
             + there must be at least 1 of such a monster
-        - on completion, get 5 tiles
+        + on completion, get 5 tiles
         - on completion, drop quest heal item
         - heal item heals player
         - monsters can't step on it
