@@ -363,7 +363,7 @@ impl SimulationState {
     }
   }
 
-  pub fn move_enemy(&mut self, from: Position, to: Position) {
+  pub fn move_enemy(&mut self, from: Position, to: Position, speed: f64) {
     info!("move enemy {:?} -> {:?}", from, to);
     if !self.enemies.contains_key(to) {
       if let Some(nme) = self.enemies.remove(from) {
@@ -371,19 +371,22 @@ impl SimulationState {
         let t0 = Vec2::from(from);
         let t1 = Vec2::from(to);
         let mid = (t0 + t1) / 2.;
-        self.animate_unit_motion(nme.id, t0, mid, 0.1)
-          .reserve(&[from])
-          .reserve(&[nme.id]);
+        self.animations.append(empty_animation)
+          .reserve([from,to])
+          .reserve(nme.id);
+        self.animate_unit_motion(nme.id, t0, mid, 0.2 / speed)
+          .chain();
         if self.board[from] == Tile::default() {
           let rgr = self.ragdoll_ref(nme.id).clone();
           self.animations.append(move |_time| {
             unsafe { rgr.get().img = enemy(nme.t); }
             false
-          }).reserve(&[nme.id]);
+          }).chain();
         }
-        self.animate_unit_motion(nme.id, mid, t1, 0.1)
-          .reserve(&[to])
-          .reserve(&[nme.id]);
+        self.animate_unit_motion(nme.id, mid, t1, 0.2 / speed)
+          .chain()
+          .reserve(to)
+          .reserve(nme.id);
       }
     }
   }
@@ -418,7 +421,7 @@ impl SimulationState {
       velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
       velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
       velocity *= 8.;
-      self.animate_unit_fling(id, at.into(), velocity, 0.2).reserve(&[id]);
+      self.animate_unit_fling(id, at.into(), velocity, 0.2).reserve(id);
 
     }
   }
@@ -481,7 +484,7 @@ impl SimulationState {
     let from = self.player_pos;
     self.player_pos = to;
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), 0.3)
-      .reserve(&[from,to]);
+      .reserve([from,to]);
   }
 
   pub fn maybe_complete_quest(&mut self) {
@@ -616,7 +619,9 @@ async fn main() {
           result
         };
         if crowd.len() > 0 { // fight!
+          let mut speed_mul = 1.;
           while sim.enemies.contains_key(target) {
+            speed_mul += 0.5;
             sim.slay_enemy(target, playermove);
             // enemies behind move up
             let mut vacated = target;
@@ -628,7 +633,7 @@ async fn main() {
                   // enemies only want to scooch closer
                   if dist2 <= dist { continue; }
                   if sim.enemies.contains_key(neighbor) {
-                    sim.move_enemy(neighbor, vacated);
+                    sim.move_enemy(neighbor, vacated, speed_mul);
                     vacated = neighbor;
                     dist = dist2;
                     continue 'scooch;
@@ -755,7 +760,7 @@ async fn main() {
         for (pos, _) in sim.enemies.clone().iter() {
           let maybe_pos = enemy_pathfind(&mut sim, *pos);
           if let Some(new_pos) = maybe_pos {
-            sim.move_enemy(*pos, new_pos);
+            sim.move_enemy(*pos, new_pos, 1.);
           }
           //debug!("a monster turn happened at {:?}", pos)
         }
@@ -960,24 +965,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
-  // handle the just-spawned void-camping case
-
-
-  //if sim.board[pos] == Tile::default() {
-  //  let mut candidates: Vec<IVec> = Vec::new();
-  //  for d in Dir4::list() {
-  //    let candidate = pos + IVec::from(d);
-  //    if sim.board[candidate] != Tile::default() &&
-  //      !equivalent(candidate, sim.player_pos)
-  //    {
-  //      candidates.push(candidate);
-  //    }
-  //  }
-  //  return select_candidate(candidates, sim);
-  //}
-
   // add forest edges to valid set
-
   let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board); 
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
@@ -995,6 +983,8 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     if equivalent(target, sim.player_pos) { continue; }
     // no void
     if sim.board[target] == Tile::default() { continue; }
+    // dont step on quest
+    if sim.quests.contains_key(target) { continue; }
     candidates.push(target);
   }
   if sim.board[pos] != Tile::default() {

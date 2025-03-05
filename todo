@@ -1,5 +1,9 @@
+- particles
+- interleave HUD value updates with animations
++ enemies dont stand on quest
+- tiles from extermination awarded before pickup
 
-- spooky enemy when in void
++ spooky enemy when in void
 
 + fewer enemies
 + enemies dont rudely step on player's toes

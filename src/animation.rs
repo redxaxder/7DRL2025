@@ -146,6 +146,15 @@ impl<T:Lock + Copy, const N: usize> Lock for &[T;N] {
     it
   }
 }
+impl<T:Lock + Copy, const N: usize> Lock for [T;N] {
+  fn to_lock(self) -> u128 {
+    let mut it = 0;
+    for x in self {
+      it |= x.to_lock()
+    }
+    it
+  }
+}
 
 impl std::ops::BitOrAssign<AnimLock> for AnimLock {
   fn bitor_assign(&mut self, other: AnimLock) {
@@ -307,23 +316,17 @@ impl Animation {
     }
   }
 
+  // Non-exclusive lock
   pub fn require(&mut self, locs: impl Lock) -> &mut Self {
     self.lock = self.lock.require(locs); self
   }
 
-
+  // Exclusive lock
   pub fn reserve(&mut self, locs: impl Lock) -> &mut Self  {
     self.lock = self.lock.reserve(locs); self
   }
 
-  //pub fn require_id(&mut self, id: u64) -> &mut Self  {
-  //  self.lock = self.lock.require_id(id); self
-  //}
-  //pub fn reserve_id(&mut self, id: u64) -> &mut Self  {
-  //  self.lock = self.lock.reserve_id(id); self
-  //}
-
-
+  // Don't start until prior animation finishes
   pub fn chain(&mut self) -> &mut Self {
     self.state = AnimationState::Chain;
     self

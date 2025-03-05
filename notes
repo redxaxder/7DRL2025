@@ -65,8 +65,9 @@ v0.2 "iterable"
            - not eligible for terrain quest if no river source
    + grass + no changes. just didn't want to leave you out, bro
  - victory
-   - collect mcguffin which starts surrounded by monsters in the forest
+   - collect mcguffin which starts under a monster
      - 4th monster type that doesn't take a turn
+     - backup monsters stream in from a unique cave tile
 v0.3 "qol"
  - end game screen / detection
  - animate particles for
@@ -98,7 +99,7 @@ v0.3 "qol"
      - monster turns
  - sounds?
  - music?
- - indicate off-map monsters (red eyes?)
+ + indicate off-map monsters (red eyes?)
  - click to move / place tile
    - hover shows movement path
    - movement path is displayed differently if passing through forced combat
