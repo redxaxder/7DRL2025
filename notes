@@ -56,15 +56,15 @@ v0.2 "iterable"
    + get 1 tile
  + stepping on quest heal consumes 
    + (placeholder art)
- - terrain effects:
+ + terrain effects:
    + forest + restrict monster moves
    + road + unrestrict player moves
           + restrict tile placement
    + town + restrict monster moves
-   - river + restrict tile placement
+   + river + restrict tile placement
            + pool extra monster turns
              + exception for roads
-           - not eligible for terrain quest if no river source
+           + not eligible for terrain quest if no river source
    + grass + no changes. just didn't want to leave you out, bro
  - victory
    - collect mcguffin which starts under a monster

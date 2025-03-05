@@ -163,25 +163,7 @@ impl SimulationState {
       let rid = self.regions[p][d.index()];
       let t0 = self.board[p].contents[d.index()];
 
-      let neighbors = [
-        // Example with d = Right
-        // |-----------------|-----------------|
-        // | \             / | \             / |
-        // |   \    n1   /   |   \         /   |
-        // |     \     /     |     \     /     |
-        // |       \ /       |       \ /       |
-        // | n0    / \  (p,d)| n3    / \       |
-        // |     /     \     |     /     \     |
-        // |   /    n2   \   |   /         \   |
-        // | /             \ | /             \ |
-        // |-----------------|-----------------|
-        // note: n0 is special cased to only be a neighbor if center terrain matches
-        (p, d.opposite()),
-        (p, d.rotate4(1)),
-        (p, d.rotate4(3)),
-        (p + d.into(), d.opposite())
-      ];
-
+      let neighbors = subtile_neighbors((p,d));
       let mut min_rid = RegionId::MAX;
 
       for i in 0..4 { // find the greatest region id among matching neighbors
@@ -296,20 +278,44 @@ impl SimulationState {
     let terrain = self.board[position].contents[dir.index()];
     let size = self.region_sizes[&rid];
     if terrain == Terrain::River {
-      // TODO: special case river rewards
-    } else {
-      let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
-      if xp_reward > 0 {
-        // TODO: XP particles
-        self.add_xp(xp_reward as i64);
-        let from = display.pos_rect(self.player_pos.into()).center();
-        let to = self.layout[&HudItem::Tile].center();
-        self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-        self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
-        self.add_tiles(1).chain();
-        //debug!("region reward: {} xp 1 tile", xp_reward);
+      // Cancel the reward if the region is a river without
+      // a source
+      let mut river_reward = false;
+      let mut frontier: Vec<(Position, Dir4)> = vec![(position,dir)];
+      let mut visited: Set<(Position, Dir4)>  = Set::new();
+      while let Some(subtile@(tile,_)) = frontier.pop() {
+        if self.board[tile].count(Terrain::River) == 1 {
+          river_reward = true;
+          break;
+        }
+        if !visited.contains(&subtile) {
+          visited.insert(subtile);
+          let neighbors = subtile_neighbors(subtile);
+          for i in 0..4 {
+            let n@(p,d) = neighbors[i];
+            if i == 0 &&
+              self.board[p].contents[4] != Terrain::River {
+                continue;
+            }
+            if self.board[p]
+              .contents[d.index()] == Terrain::River {
+              frontier.push(n);
+            }
+          }
+        }
       }
-
+      if !river_reward { return; }
+    }
+    let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
+    if xp_reward > 0 {
+      // TODO: XP particles
+      self.add_xp(xp_reward as i64);
+      let from = display.pos_rect(self.player_pos.into()).center();
+      let to = self.layout[&HudItem::Tile].center();
+      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+      self.add_tiles(1).chain();
+      //debug!("region reward: {} xp 1 tile", xp_reward);
     }
   }
 

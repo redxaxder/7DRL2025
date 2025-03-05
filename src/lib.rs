@@ -106,6 +106,17 @@ pub struct Tile {
   pub contents: [Terrain; 5]
 }
 
+impl Tile {
+  pub fn count(self, t: Terrain) -> usize {
+    let mut n = 0;
+    for i in 0..4 {
+      if self.contents[i] == t { n += 1; }
+    }
+    n
+  }
+}
+
+
 impl Default for Tile {
   fn default() -> Self {
     Tile {
@@ -272,4 +283,28 @@ fn wrap1f(x: f32, min: f32, width: f32)  -> f32 {
 
 pub fn equivalent(p:Position, q:Position) -> bool {
   BOARD_RECT.wrap(p) == BOARD_RECT.wrap(q)
+}
+
+
+pub fn subtile_neighbors(st: (Position, Dir4)) -> [(Position, Dir4);4] {
+  let (p,d) = st;
+  let neighbors = [
+    // Example with d = Right
+    // |-----------------|-----------------|
+    // | \             / | \             / |
+    // |   \    n1   /   |   \         /   |
+    // |     \     /     |     \     /     |
+    // |       \ /       |       \ /       |
+    // | n0    / \  (p,d)| n3    / \       |
+    // |     /     \     |     /     \     |
+    // |   /    n2   \   |   /         \   |
+    // | /             \ | /             \ |
+    // |-----------------|-----------------|
+    // note: n0 is special cased to only be a neighbor if center terrain matches
+    (p, d.opposite()),
+    (p, d.rotate4(1)),
+    (p, d.rotate4(3)),
+    (p + d.into(), d.opposite())
+  ];
+  neighbors
 }
