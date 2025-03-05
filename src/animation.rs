@@ -263,6 +263,10 @@ impl AnimationQueue {
     self.animations.back_mut().unwrap()
   }
 
+  pub fn append_empty(&mut self, duration: Seconds) -> &mut Animation {
+    self.append(move |time| { time.elapsed < duration })
+  }
+
   pub fn len(&self) -> usize {
     self.animations.len()
   }

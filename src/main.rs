@@ -9,6 +9,7 @@ const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 1
 const REGION_REWARD_THRESHOLD: usize = 4;
 
 const STARTING_HP: i64 = 5;
+const STARTING_TILES: i64 = 30;
 
 struct SimulationState {
   player_pos: Position,
@@ -56,6 +57,7 @@ pub struct Hud {
   pub xp: i64,
   pub hp: i64,
   pub hp_color: Color,
+  pub tiles: i64,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -63,6 +65,7 @@ impl Hud {
       xp: 0,
       hp: STARTING_HP,
       hp_color: WHITE,
+      tiles: STARTING_TILES,
     }
   }
 }
@@ -91,7 +94,7 @@ impl SimulationState {
       player_hp_max: STARTING_HP,
       player_xp: 0,
       player_level: 1,
-      player_tiles: 30,
+      player_tiles: STARTING_TILES,
       player_next_tile: Tile::default(),
       next_quest: None,
       player_tile_transform: D8::E,
@@ -196,7 +199,7 @@ impl SimulationState {
     }
   }
 
-  pub fn place_tile(&mut self, position: Position, tile: Tile) {
+  pub fn place_tile(&mut self, position: Position, tile: Tile, display: &Display) {
     self.board[position] = tile;
 
     { // region tracking
@@ -261,9 +264,11 @@ impl SimulationState {
           }
         }
         if is_matched {
-          // perfect tile bonus
-          // TODO: UI hint
-          self.player_tiles += 1;
+          let from = display.pos_rect(p.into()).center();
+          let to = self.layout[&HudItem::Tile].center();
+          self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+          self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+          self.add_tiles(1).chain();
           debug!("perfect tile bonus");
         }
       }
@@ -291,7 +296,7 @@ impl SimulationState {
     }
   }
 
-  pub fn reward_completed_region(&mut self, rid: RegionId) {
+  pub fn reward_completed_region(&mut self, rid: RegionId, display: &Display) {
     let (position, dir) = self.region_start[&rid];
     let terrain = self.board[position].contents[dir.index()];
     let size = self.region_sizes[&rid];
@@ -300,10 +305,14 @@ impl SimulationState {
     } else {
       let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
       if xp_reward > 0 {
-        // TODO: UI hints
+        // TODO: XP particles
         self.add_xp(xp_reward as i64);
-        self.player_tiles += 1;
-        debug!("region reward: {} xp 1 tile", xp_reward);
+        let from = display.pos_rect(self.player_pos.into()).center();
+        let to = self.layout[&HudItem::Tile].center();
+        self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+        self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+        self.add_tiles(1).chain();
+        //debug!("region reward: {} xp 1 tile", xp_reward);
       }
 
     }
@@ -316,7 +325,7 @@ impl SimulationState {
   pub fn next_tile(&mut self) {
     self.player_next_tile = tiles::generate(&mut self.rng);
     self.player_tile_transform = D8::E;
-    self.player_tiles -= 1;
+    self.add_tiles(-1);
 
     // does the next tile have a quest?
     if roll_chance(&mut self.rng, QUEST_SPAWN_CHANCE) {
@@ -494,6 +503,16 @@ impl SimulationState {
     })
   }
 
+  pub fn add_tiles(&mut self, amount: i64) -> &mut Animation {
+    self.player_tiles += amount;
+    let hudref = self.hud.clone();
+    self.animations.append(move |_| unsafe {
+      hudref.get().tiles += amount;
+      false
+    }).chain()
+
+  }
+
   fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
     if let Some(rgr) = self.ragdolls.get(&unit_id) {
       (*rgr).clone()
@@ -598,17 +617,6 @@ impl SimulationState {
       .reserve(PLAYER_UNIT_ID);
   }
 
-  pub fn maybe_complete_quest(&mut self) {
-    let ppos = self.player_pos;
-    if let Some(quest) = self.quests.get(ppos) {
-      if quest.quota < 1 {
-        self.quests.remove(self.player_pos);
-        self.player_tiles += 5;
-        self.full_heal().require(ppos);
-      }
-    }
-  }
-
   // 2- perfect match
   // 1- imperfect match
   // 0- missing required match
@@ -684,7 +692,6 @@ async fn main() {
         }
         Input::Discard => {
           sim.next_tile();
-          //debug!("tiles left: {:?}", sim.player_tiles);
         }
         Input::LevelUp => {
           sim.player_level_up()
@@ -810,21 +817,39 @@ async fn main() {
         };
 
         sim.move_player(target);
-        sim.maybe_complete_quest();
+
+        { // Quest reward
+          let ppos = sim.player_pos;
+          if let Some(quest) = sim.quests.get(ppos) {
+            if quest.quota < 1 {
+              sim.quests.remove(ppos);
+              for i in 0..5 {
+                let delay = f64::from(i) * 0.15;
+                let from = display.pos_rect(ppos.into()).center();
+                let to = sim.layout[&HudItem::Tile].center();
+                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                sim.animations.append_empty(delay).chain();
+                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+                sim.add_tiles(1).chain();
+              }
+              sim.full_heal().require(ppos);
+            }
+          }
+        }
+
 
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
-          sim.place_tile(sim.player_pos, sim.player_current_tile());
+          sim.place_tile(sim.player_pos, sim.player_current_tile(), &display);
           sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
           if let Some(nme) = sim.enemies.remove(sim.player_pos) {
             sim.ragdolls.remove(&nme.id);
           }
-          //debug!("tiles left: {:?}", sim.player_tiles);
           sim.update_region_sizes();
 
           // check for completed regions
@@ -846,7 +871,7 @@ async fn main() {
             }
           }
           for &regionid in just_completed.iter() {
-            sim.reward_completed_region(regionid);
+            sim.reward_completed_region(regionid, &display);
           }
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
@@ -993,7 +1018,7 @@ async fn main() {
         { // Remaining tiles
           let r = sim.layout[&HudItem::Tile];
           let bar = sim.layout[&HudItem::Bar];
-          let remaining_tiles = format!("{}", sim.player_tiles);
+          let remaining_tiles = format!("{}", sim.hud.tiles);
           let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
           let leftover = bar.h - textdim.height;
           let x = r.x - textdim.width - margin;
