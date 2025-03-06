@@ -26,7 +26,7 @@ struct SimulationState {
   player_next_tile: Tile,
   next_quest: Option<Quest>,
   player_tile_transform: D8,
-  player_speed_penalty: i64,
+  monster_turns: i64,
 
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
@@ -64,6 +64,7 @@ pub struct Hud {
   pub hp: i64,
   pub hp_color: Color,
   pub tiles: i64,
+  pub turns: i64,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -72,6 +73,7 @@ impl Hud {
       hp: STARTING_HP,
       hp_color: WHITE,
       tiles: STARTING_TILES,
+      turns: 0,
     }
   }
 }
@@ -104,7 +106,7 @@ impl SimulationState {
       player_next_tile: Tile::default(),
       next_quest: None,
       player_tile_transform: D8::E,
-      player_speed_penalty: 0,
+      monster_turns: 0,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
       quests: WrapMap::new(BOARD_RECT),
@@ -510,7 +512,6 @@ impl SimulationState {
     self.add_hp(self.player_hp_max - self.player_hp)
   }
   pub fn add_hp(&mut self, amount: i64) -> &mut Animation {
-    println!("add hp {}", amount);
     let is_damage = amount < 0;
     self.player_hp += amount;
     let hudref = self.hud.clone();
@@ -527,6 +528,15 @@ impl SimulationState {
     })
   }
 
+  pub fn add_monster_turns(&mut self, amount: i64) -> &mut Animation {
+    self.monster_turns += amount;
+    let hudref = self.hud.clone();
+    self.animations.append(move |_| unsafe {
+      let hud = hudref.get();
+      hud.turns += amount;
+      false
+    })
+  }
 
   pub fn in_combat(&mut self) -> bool {
     let mut in_combat = false;
@@ -588,12 +598,17 @@ impl SimulationState {
       };
       let rgr = Ref::new(Ragdoll {
         pos: self.player_relative_coordinates(Vec2::from(pos)),
-        color: RED,
+        color: Color{a: 0., ..RED},
         img: UNKNOWN_ENEMY,
         dead: false,
       });
       self.ragdolls.insert(unit_id, rgr.clone());
-      rgr
+      let result = rgr.clone();
+      self.animations.append(move |_| unsafe {
+        rgr.get().color.a = 1.;
+        false
+      }).reserve(unit_id).reserve(pos);
+      result
     }
   }
 
@@ -988,13 +1003,13 @@ async fn main() {
           }
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
-            sim.player_speed_penalty += 1;
             let from = display.pos_rect(target.into()).center();
             let to = sim.layout[&HudItem::SpeedPenalty].center();
             sim.animations.append(empty_animation).require(target);
             sim.launch_particle(from, to,
               TIME, BLUE, 0.4, 0.03
             ).chain();
+            sim.add_monster_turns(1).chain();
           }
         }
       }
@@ -1019,23 +1034,24 @@ async fn main() {
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
 
     {//monsters
-      sim.animations.sync_positions();
-      let mut monster_turns = 0;
+      let mut monsters_go = false;
       if tile_placed || (player_moved && sim.player_tiles < 1) {
-        monster_turns = 1;
-        monster_turns += sim.player_speed_penalty;
-        sim.player_speed_penalty = 0;
+        sim.animations.sync_positions();
+        sim.add_monster_turns(1).chain();
+        monsters_go = true;
         sim.update_player_dmap();
       }
       let mut spawns = vec!();
-      while monster_turns > 0 {
+
+      let mut acceleration = 1.0;
+      while monsters_go && sim.monster_turns > 0 {
         spawns.clear();
         sim.update_nearest_dmap();
         //do monster turn
         for (pos, _) in sim.enemies.clone().iter() {
           let maybe_pos = enemy_pathfind(&mut sim, *pos);
           if let Some(new_pos) = maybe_pos {
-            sim.move_enemy(*pos, new_pos, 1.);
+            sim.move_enemy(*pos, new_pos, acceleration);
           }
           //debug!("a monster turn happened at {:?}", pos)
         }
@@ -1053,10 +1069,14 @@ async fn main() {
             //debug!("spawned a monster {:?} at {:?}", nme.t, p)
           }
         }
-        monster_turns -= 1;
         for(t,p) in &spawns {
           sim.spawn_enemy(*t,*p);
         }
+
+        sim.animations.append_empty(0.3 / acceleration).chain();
+        sim.animations.sync_positions().chain();
+        sim.add_monster_turns(-1).chain();
+        acceleration += 0.5;
       }
     }
 
@@ -1213,7 +1233,7 @@ async fn main() {
           }
 
 
-          { // Speed penalty
+          { // num monster turns
             let bar = sim.layout[&HudItem::Bar];
             let icon_rect = Rect{
               x: bar.w * 0.5,
@@ -1221,18 +1241,17 @@ async fn main() {
               w: sz.x,
               h: sz.y,
             };
-            let text = format!("{}", sim.player_speed_penalty+1);
-            let textdim = measure_text(&text, None, font_size, font_scale);
-            let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
-            let x = icon_rect.x - textdim.width - margin;
-            if sim.player_speed_penalty > 0 {
+            if sim.hud.turns > 0 {
+              let text = format!("{}", sim.hud.turns);
+              let textdim = measure_text(&text, None, font_size, font_scale);
+              let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
+              let x = icon_rect.x - textdim.width - margin;
               display.draw_img( icon_rect, BLUE, &TIME);
               draw_text(&text,x,y, font_size.into(), WHITE);
             }
             sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
           }
         }
-        
       }
 
       { // draw dmap2

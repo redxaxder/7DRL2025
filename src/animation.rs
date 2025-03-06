@@ -242,9 +242,10 @@ impl AnimationQueue {
     a.lock = AnimLock::full();
   }
 
-  pub fn sync_positions(&mut self) {
+  pub fn sync_positions(&mut self) -> &mut Animation {
     let a = self.append(empty_animation);
     a.lock = AnimLock::full_positions();
+    a
   }
 
   // the bool returned from the function marks if the animation
