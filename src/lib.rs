@@ -157,6 +157,11 @@ impl EnemyType {
   }
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash, Debug)]
+pub enum Prize {
+  Heal,
+}
 
 static mut NEXT_UNIT_ID: UnitId = 10;
 fn next_unit_id() -> UnitId {

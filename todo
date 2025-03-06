@@ -10,7 +10,7 @@
   + tiles
   + xp
 - award tiles from extermination before pickup
-- erase quest on hand tile when discarding
++ erase quest on hand tile when discarding
 - allow new quests of type if previous is complete but uncollected
 
 

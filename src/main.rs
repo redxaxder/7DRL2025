@@ -43,6 +43,7 @@ struct SimulationState {
   rng: Rng,
 
   quests: WrapMap<Quest>,
+  prizes: WrapMap<Prize>,
 
   player_dmap: DMap,
   nearest_enemy_dmap: DMap,
@@ -107,6 +108,7 @@ impl SimulationState {
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
       quests: WrapMap::new(BOARD_RECT),
+      prizes: WrapMap::new(BOARD_RECT),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
       open_regions: Set::new(),
@@ -709,7 +711,9 @@ async fn main() {
           sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
         }
         Input::Discard => {
+          sim.next_quest = None;
           sim.next_tile();
+
         }
         Input::LevelUp => {
           sim.player_level_up()
@@ -827,8 +831,8 @@ async fn main() {
               sim.animations.append_empty(delay).chain();
               for _ in 0..QUEST_REWARD {
                 sim.launch_particle(from, to, TILE, GRAY, 3., 0.1);
+                sim.add_tiles(1).chain();
               }
-              sim.add_tiles(QUEST_REWARD).chain();
               i += 1.;
             }
           }

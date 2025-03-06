@@ -37,7 +37,6 @@ pub const fn enemy(nme: EnemyType) -> Img {
     EnemyType::Blinky   => "nme2.png",
     EnemyType::Pinky => "nme3.png",
     EnemyType::GhostWitch  => "boss.png",
-    _ => "",
   };
   def(path)
 }
