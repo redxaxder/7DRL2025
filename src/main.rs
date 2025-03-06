@@ -16,6 +16,9 @@ const STARTING_TILES: i64 = 30;
 
 const DEBUG_IMMORTAL: bool = false;
 
+//const MONSTER_COLOR: Color = PURPLE;
+const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
+
 struct SimulationState {
   player_pos: Position,
   player_hp: i64,
@@ -157,7 +160,7 @@ impl SimulationState {
     if self.board[at] != Tile::default() {
       unsafe {
         rdr.get().img = enemy_img(nme.t);
-        rdr.get().color = BLACK;
+        rdr.get().color = MONSTER_COLOR;
       }
     }
   }
@@ -450,7 +453,7 @@ impl SimulationState {
             unsafe {
               let ragdoll = rgr.get();
               ragdoll.img = enemy_img(nme.t);
-              ragdoll.color = BLACK;
+              ragdoll.color = MONSTER_COLOR;
             }
             false
           }).chain();
