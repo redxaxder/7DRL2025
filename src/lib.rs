@@ -90,6 +90,7 @@ impl Terrain {
     match self {
       Self::Road => true,
       Self::Town => true,
+      Self::River => true,
       _ => false
     }
   }
