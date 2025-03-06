@@ -7,6 +7,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "hero.png",
   "terrain_placeholder.png",
   "terrain_grass.png",
+  "terrain_forest.png",
   "npc.png",
   "nme1.png",
   "nme2.png",
@@ -61,6 +62,7 @@ fn terrain_path(terrain: Terrain) -> &'static str {
   match terrain {
     Terrain::Road =>  "road16.png",
     Terrain::Grass => "terrain_grass.png",
+    Terrain::Forest => "terrain_forest.png",
     _ =>  "terrain_placeholder.png",
   }
 }
