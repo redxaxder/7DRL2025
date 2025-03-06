@@ -1,0 +1,14 @@
+TILER'S ADVENTURE
+
+Controls:
+|                               | Modern | Traditional | Vim       |
+|-------------------------------+--------+-------------+-----------|
+| Move/Place Up                 | W      | Up arrow    | K         |
+| Move/Place Down               | S      | Down arrow  | J         |
+| Move/Place Left               | A      | Left arrow  | H         |
+| Move/Place Right              | D      | Right arrow | L         |
+|                               |        |             |           |
+| Rotate tile counter-clockwise | Q      | Y           | ,         |
+| Rotate tile clockwise         | E      | U           | .         |
+| Level up                      | Z      | B           | Enter     |
+| Discard current tile          | X      | N           | Backspace |
