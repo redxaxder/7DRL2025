@@ -71,7 +71,7 @@ v0.2 "iterable"
     + spawns on map with starting tiles
     + backup monsters stream in from a unique cave tile
 v0.3 "qol"
- - end game screen / detection
+ + end game screen / detection
  - there is a boss mcguffin that gives you like a million tiles
  - animate particles for
    + gaining exp

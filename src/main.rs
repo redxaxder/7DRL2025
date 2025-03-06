@@ -751,6 +751,9 @@ async fn main() {
             sim.slay_enemy(target, playermove, &display);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
             speed_mul += 0.5;
+            if sim.player_hp < 1 {
+              break;
+            }
           }
           if sim.player_hp > 0 {
             defeated_boss = true;
@@ -995,7 +998,7 @@ async fn main() {
       if sim.player_hp < 1 && !DEBUG_IMMORTAL {
         defeat = true;
 
-        let dirvec: Vec2 = (target - sim.player_pos).into();
+        let dirvec: Vec2 = (sim.player_pos - target).into();
         let mut velocity: Vec2 = Vec2::from(dirvec) * 3.;
         velocity.x += (sim.rng.next_u32() % 1000) as f32 / 1000.;
         velocity.y += (sim.rng.next_u32() % 1000) as f32 / 1000.;
@@ -1004,12 +1007,8 @@ async fn main() {
           PLAYER_UNIT_ID,
           dirvec * 3.,
           velocity,
-          0.2).require(PLAYER_UNIT_ID);
+          0.2).reserve(PLAYER_UNIT_ID);
       }
-    }
-
-    defeat = sim.player_hp < 1 || DEBUG_IMMORTAL;
-    if defeat {
     }
 
     //debug!("{:?}", sim.player_pos);
@@ -1130,77 +1129,88 @@ async fn main() {
           draw_rectangle(x, y, w, h, DARKGRAY);
         }
 
-        { // Next Tile
-          let hudbar: Rect = sim.layout[&HudItem::Bar];
-          let r = Rect {
-            x: hudbar.w - sz.x - margin,
-            y: hudbar.y + margin ,
-            w: sz.x,
-            h: sz.y
-          };
-          sim.layout.insert(HudItem::Tile, r);
-          display.draw_tile(r, sim.player_current_tile());
-          if let Some(_) = sim.next_quest {
-            display.draw_img(r, BLACK, &QUEST);
+        if defeat {
+            let r = sim.layout[&HudItem::Tile];
+            let bar = sim.layout[&HudItem::Bar];
+            let display_text = format!("Defeated...");
+            let textdim: TextDimensions = measure_text(&display_text, None, font_size, font_scale);
+            let leftover = bar.h - textdim.height;
+            let x = (display.dim.x - textdim.width - margin)/2.;
+            let y = bar.y + (0.5 * leftover) + textdim.offset_y;
+            draw_text(&display_text, x, y, font_size as f32, WHITE);
+        } else {
+          { // Next Tile
+            let hudbar: Rect = sim.layout[&HudItem::Bar];
+            let r = Rect {
+              x: hudbar.w - sz.x - margin,
+              y: hudbar.y + margin ,
+              w: sz.x,
+              h: sz.y
+            };
+            sim.layout.insert(HudItem::Tile, r);
+            display.draw_tile(r, sim.player_current_tile());
+            if let Some(_) = sim.next_quest {
+              display.draw_img(r, BLACK, &QUEST);
+            }
+          }
+
+          { // Remaining tiles
+            let r = sim.layout[&HudItem::Tile];
+            let bar = sim.layout[&HudItem::Bar];
+            let remaining_tiles = format!("{}", sim.hud.tiles);
+            let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
+            let leftover = bar.h - textdim.height;
+            let x = r.x - textdim.width - margin;
+            let y = bar.y + (0.5 * leftover) + textdim.offset_y;
+            draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
+          }
+
+          { // Current/Max HP and XP
+            let bar = sim.layout[&HudItem::Bar];
+            let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
+            let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
+            let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
+            let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
+            let leftover = bar.h - hpdim.height - xpdim.height;
+            let hpr = Rect {
+              x: margin,
+              w: hpdim.width,
+              h: hpdim.height,
+              y: bar.y + (0.33 * leftover),
+            };
+            let xpr = Rect {
+              x: margin,
+              w: xpdim.width,
+              h: xpdim.height,
+              y: bar.y + (0.66 * leftover) + hpr.h,
+            };
+            draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, sim.hud.hp_color);
+            draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, WHITE);
+            sim.layout.insert(HudItem::Hp, hpr);
+            sim.layout.insert(HudItem::Xp, xpr);
+          }
+
+
+          { // Speed penalty
+            let bar = sim.layout[&HudItem::Bar];
+            let icon_rect = Rect{
+              x: bar.w * 0.5,
+              y: bar.y + margin,
+              w: sz.x,
+              h: sz.y,
+            };
+            let text = format!("{}", sim.player_speed_penalty+1);
+            let textdim = measure_text(&text, None, font_size, font_scale);
+            let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
+            let x = icon_rect.x - textdim.width - margin;
+            if sim.player_speed_penalty > 0 {
+              display.draw_img( icon_rect, BLUE, &TIME);
+              draw_text(&text,x,y, font_size.into(), WHITE);
+            }
+            sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
           }
         }
-
-        { // Remaining tiles
-          let r = sim.layout[&HudItem::Tile];
-          let bar = sim.layout[&HudItem::Bar];
-          let remaining_tiles = format!("{}", sim.hud.tiles);
-          let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
-          let leftover = bar.h - textdim.height;
-          let x = r.x - textdim.width - margin;
-          let y = bar.y + (0.5 * leftover) + textdim.offset_y;
-          draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
-        }
-
-        { // Current/Max HP and XP
-          let bar = sim.layout[&HudItem::Bar];
-          let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
-          let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-          let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
-          let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
-          let leftover = bar.h - hpdim.height - xpdim.height;
-          let hpr = Rect {
-            x: margin,
-            w: hpdim.width,
-            h: hpdim.height,
-            y: bar.y + (0.33 * leftover),
-          };
-          let xpr = Rect {
-            x: margin,
-            w: xpdim.width,
-            h: xpdim.height,
-            y: bar.y + (0.66 * leftover) + hpr.h,
-          };
-          draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, sim.hud.hp_color);
-          draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, WHITE);
-          sim.layout.insert(HudItem::Hp, hpr);
-          sim.layout.insert(HudItem::Xp, xpr);
-        }
-
-
-        { // Speed penalty
-          let bar = sim.layout[&HudItem::Bar];
-          let icon_rect = Rect{
-            x: bar.w * 0.5,
-            y: bar.y + margin,
-            w: sz.x,
-            h: sz.y,
-          };
-          let text = format!("{}", sim.player_speed_penalty+1);
-          let textdim = measure_text(&text, None, font_size, font_scale);
-          let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
-          let x = icon_rect.x - textdim.width - margin;
-          if sim.player_speed_penalty > 0 {
-            display.draw_img( icon_rect, BLUE, &TIME);
-            draw_text(&text,x,y, font_size.into(), WHITE);
-          }
-          sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
-        }
-
+        
       }
 
       { // draw dmap2
@@ -1261,7 +1271,7 @@ async fn main() {
 
     next_frame().await;
 
-    if victory || defeat && sim.animations.len() == 0 {
+    if victory && sim.animations.len() == 0 {
       break;
     }
   }
@@ -1270,13 +1280,6 @@ async fn main() {
     clear_background(BLACK);
     loop {
       draw_text("You win!", 300., 300., 64., WHITE);
-      next_frame().await;
-    }
-  }
-  if defeat {
-    clear_background(BLACK);
-    loop {
-      draw_text("Defeat...", 300., 300., 64., WHITE);
       next_frame().await;
     }
   }
