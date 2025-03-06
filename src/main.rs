@@ -1081,16 +1081,9 @@ async fn main() {
         let r = display.pos_rect(p.into());
         display.draw_tile(r, tile);
         if sim.quests.contains_key(p) {
+          // draw quest
           let quest = sim.quests[p];
-          display.draw_img(r, BLACK, &QUEST);
-          let quest_text = format!("Kill {:?} x {}", quest.target, quest.quota);
-          let font_size = 60;
-          let font_scale = 1.;
-          let textdim: TextDimensions = measure_text(&quest_text, None, font_size, font_scale);
-          let margin = 0.;
-          let x = r.x - textdim.width - margin;
-          let y = r.y + textdim.offset_y;
-          draw_text(&quest_text, x, y, font_size.into(), BLACK);
+          draw_quest(&display, &r, &quest);
         }
         if let Some(prize) = sim.prizes.get(p) {
           let img = prize_img(*prize);
@@ -1145,8 +1138,8 @@ async fn main() {
             };
             sim.layout.insert(HudItem::Tile, r);
             display.draw_tile(r, sim.player_current_tile());
-            if let Some(_) = sim.next_quest {
-              display.draw_img(r, BLACK, &QUEST);
+            if let Some(q) = sim.next_quest {
+              draw_quest(&display, &r, &q);
             }
           }
 

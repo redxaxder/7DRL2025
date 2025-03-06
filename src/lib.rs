@@ -323,3 +323,19 @@ pub fn subtile_neighbors(st: (Position, Dir4)) -> [(Position, Dir4);4] {
   ];
   neighbors
 }
+
+pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
+  display.draw_img(*r, BEIGE, &SCROLL);
+  let mut er = r.clone();
+  er.scale(0.5, 0.5);
+  er = er.offset(Vec2{ x: r.w/3., y: r.h * 0.3 });
+  display.draw_img(er, BLACK, &enemy_img(quest.target));
+  let quest_text = format!("{}", quest.quota);
+  let font_size = 50;
+  let font_scale = 1.;
+  let textdim: TextDimensions = measure_text(&quest_text, None, font_size, font_scale);
+  let margin = 0.;
+  let text_x = er.x + textdim.width * 0.8 - margin;
+  let text_y = er.y + textdim.height * 0.2;
+  draw_text(&quest_text, text_x, text_y, font_size.into(), BLACK);
+}

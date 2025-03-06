@@ -73,14 +73,14 @@ v0.2 "iterable"
 v0.3 "qol"
  + end game screen / detection
  - there is a boss mcguffin that gives you like a million tiles
- - animate particles for
+ + animate particles for
    + gaining exp
    + gaining tiles
    + gaining hp
    + gaining speed penalty
  + animate quest completion??
  - restart
- - quest speech bubbles
+ + quest speech bubbles
  + monster behavior by type
    + random movement
    + approach player
@@ -89,7 +89,7 @@ v0.3 "qol"
  - art:
    - player
    - monsters
-   - npc(s)?
+   + quest scroll
    - terrain
      + road16
      - river16
