@@ -1,17 +1,17 @@
-- particles
-  - hp
++ particles
+  + hp
   + speed penalty
   + tiles
   + xp
   + xp particles for region completion
-- interleave HUD value updates with animations
-  - hp
++ interleave HUD value updates with animations
+  + hp
   x speed penalty
   + tiles
   + xp
-- award tiles from extermination before pickup
++ award tiles from extermination before pickup
 + erase quest on hand tile when discarding
-- allow new quests of type if previous is complete but uncollected
+= allow new quests of type if previous is complete but uncollected
 
 
 - starting tile configuration

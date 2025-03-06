@@ -146,7 +146,7 @@ impl SimulationState {
     self.enemies.insert(at, nme);
     let rdr = self.ragdoll_ref(nme.id);
     if self.board[at] != Tile::default() {
-      unsafe { rdr.get().img = enemy(nme.t); }
+      unsafe { rdr.get().img = enemy_img(nme.t); }
     }
   }
 
@@ -435,7 +435,7 @@ impl SimulationState {
         if self.board[from] == Tile::default() {
           let rgr = self.ragdoll_ref(nme.id).clone();
           self.animations.append(move |_time| {
-            unsafe { rgr.get().img = enemy(nme.t); }
+            unsafe { rgr.get().img = enemy_img(nme.t); }
             false
           }).chain();
         }
@@ -819,21 +819,27 @@ async fn main() {
 
         { // Quest reward, spawn quest items
           let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
-          let mut i = 0.;
           let ppos = sim.player_pos;
-          for (p, q) in sim.quests.clone().iter() {
+          for (&p, &q) in sim.quests.clone().iter() {
             if q.quota < 1 {
-              fulfilled_quests.insert(*p, *q);
-              let delay = i * 0.15;
-              let from = display.pos_rect(Vec2::from(*p)).center();
+              fulfilled_quests.insert(p, q);
+              sim.quests.remove(p);
+              sim.prizes.insert(p, Prize::Heal);
+              // launch particles from player pos since quest
+              // origin might be offscreen.
+              // maybe later check if its on screen first
+              let from = display.pos_rect(Vec2::from(ppos)).center();
               let to = sim.layout[&HudItem::Tile].center();
-              sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-              sim.animations.append_empty(delay).chain();
-              for _ in 0..QUEST_REWARD {
-                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1);
-                sim.add_tiles(1).chain();
+              for i in 0..(QUEST_REWARD as u8) {
+                let delay = f64::from(i) * 0.15;
+                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                sim.animations.append_empty(delay)
+                  .chain();
+                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1)
+                  .chain();
+                sim.add_tiles(1)
+                  .chain();
               }
-              i += 1.;
             }
           }
           sim.animations.append_empty(0.).require(ppos);
@@ -899,6 +905,19 @@ async fn main() {
         sim.move_player(target);
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
+
+        // try to collect prize
+        if let Some(&prize) = sim.prizes.get(target) {
+          sim.prizes.remove(target);
+          let from = display.pos_rect(target.into()).center();
+          let to = sim.layout[&HudItem::Hp].center();
+          sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
+          sim.launch_particle(from, to,
+            prize_img(prize), RED,
+            3., 0.05
+          ).chain();
+          sim.full_heal().chain();
+        }
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() {
@@ -1064,7 +1083,7 @@ async fn main() {
       for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
         let p = sim.player_pos + offset;
         let tile = sim.board[p];
-        let r = DISPLAY_GRID.rect(p - display.camera_focus);
+        let r = display.pos_rect(p.into());
         display.draw_tile(r, tile);
         if sim.quests.contains_key(p) {
           let quest = sim.quests[p];
@@ -1078,6 +1097,11 @@ async fn main() {
           let y = r.y + textdim.offset_y;
           draw_text(&quest_text, x, y, font_size.into(), BLACK);
         }
+        if let Some(prize) = sim.prizes.get(p) {
+          let img = prize_img(*prize);
+          display.draw_img(r, RED, &img);
+        }
+
       }
 
       // draw units

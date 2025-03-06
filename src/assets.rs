@@ -16,6 +16,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "time.png",
   "tile.png",
   "boss.png",
+  "heart.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -31,7 +32,7 @@ pub const HERO: Img = def("hero.png");
 pub const QUEST: Img = def("npc.png");
 pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 
-pub const fn enemy(nme: EnemyType) -> Img {
+pub const fn enemy_img(nme: EnemyType) -> Img {
   let path = match nme {
     EnemyType::Clyde  => "nme1.png",
     EnemyType::Blinky   => "nme2.png",
@@ -40,6 +41,14 @@ pub const fn enemy(nme: EnemyType) -> Img {
   };
   def(path)
 }
+
+pub const fn prize_img(prize: Prize) -> Img {
+  let path = match prize {
+    Prize::Heal => "heart.png",
+  };
+  def(path)
+}
+
 
 fn terrain_path(terrain: Terrain) -> &'static str {
   // TODO fill in filepaths for real terrain
