@@ -1,3 +1,10 @@
+- draw terrain by layer instead of by poisiton
+- ui hints for blocked movement
+  - from combat
+  - from placement rules
+- tile distribution metrics
+
+
 + particles
   + hp
   + speed penalty
@@ -11,11 +18,9 @@
   + xp
 + award tiles from extermination before pickup
 + erase quest on hand tile when discarding
-= allow new quests of type if previous is complete but uncollected
-
-
-- starting tile configuration
-- animate quest npcs
++ allow new quests of type if previous is complete but uncollected
++ starting tile configuration
+x animate quest npcs
 + different rng every session
 + pinkies try to hide from themselves
 + monsters camp in the void and should be forced into non-void
