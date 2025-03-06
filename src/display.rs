@@ -116,6 +116,7 @@ impl Display {
 
 
   pub fn draw_tile(&self, rect: Rect, tile: Tile) {
+    draw_rectangle(rect.x, rect.y, rect.w, rect.h, DARKBROWN);
     for &terrain in Terrain::DRAW_ORDER {
       self.draw_tile_1(rect, tile, terrain);
     }

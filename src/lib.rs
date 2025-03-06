@@ -60,11 +60,12 @@ pub enum Terrain {
 }
 impl Terrain {
   pub const DRAW_ORDER: &[Self] = &[
-  Self::Grass,
-  Self::Town,
   Self::River,
   Self::Road,
+  Self::Grass,
+  Self::Town,
   Self::Forest,
+  Self::None,
   ];
 
   pub fn index(self) -> usize {
