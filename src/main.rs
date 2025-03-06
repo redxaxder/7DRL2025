@@ -1165,6 +1165,36 @@ async fn main() {
         }
       }
 
+      for offset in DRAW_BOUNDS.iter() { // blocked tile hints
+        let p = sim.player_pos + offset;
+        let mut blocked = false;
+        let mut blocked_color = BLACK;
+        // if the target is in the frontier
+        // and the current tile cant fit there (in current orientation), it is blocked
+
+
+        if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
+          if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
+            blocked = true;
+            blocked_color = GRAY;
+          }
+        }
+
+        if let Ok(d) = Dir4::try_from(offset) {
+          // we're locked in combat, and this is not a road direction
+          if sim.in_combat() && !sim.is_road_dir(d) {
+            // we can't step on void
+            blocked = blocked || sim.board[p] == Tile::default();
+            // we can't step on a free space
+            blocked = blocked || !sim.enemies.contains_key(p);
+          }
+        }
+
+        if blocked {
+          display.draw_grid( p.into(), blocked_color, &BLOCKED);
+        }
+      }
+
       // draw enemies
       for ragdoll in sim.ragdolls.values() {
         display.draw_grid(
@@ -1173,7 +1203,6 @@ async fn main() {
           &ragdoll.img
         );
       }
-
 
       // draw boss count
       for offset in DRAW_BOUNDS.iter() { // draw quests and prized
@@ -1191,33 +1220,6 @@ async fn main() {
             font_size as f32, MONSTER_COLOR
             );
 
-        }
-      }
-
-
-      for offset in DRAW_BOUNDS.iter() { // blocked tile hints
-        let p = sim.player_pos + offset;
-        let mut blocked = false;
-        // if the target is in the frontier
-        // and the current tile cant fit there (in current orientation), it is blocked
-        if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
-          if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
-            blocked = true;
-          }
-        }
-
-        if let Ok(d) = Dir4::try_from(offset) {
-          // we're locked in combat, and this is not a road direction
-          if sim.in_combat() && !sim.is_road_dir(d) {
-            // we can't step on void
-            blocked = blocked || sim.board[p] == Tile::default();
-            // we can't step on a free space
-            blocked = blocked || !sim.enemies.contains_key(p);
-          }
-        }
-
-        if blocked {
-          display.draw_grid( p.into(), GRAY, &BLOCKED);
         }
       }
 
