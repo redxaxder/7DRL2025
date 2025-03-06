@@ -138,6 +138,8 @@ impl SimulationState {
     sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
     sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
     sim.spawn_enemy(EnemyType::GhostWitch, IVec::ZERO);
+    sim.move_player(sim.player_pos);
+
     sim
   }
 
