@@ -350,7 +350,7 @@ impl SimulationState {
         self.next_quest = Some(quest);
       }
     }
-    debug!("nq {:?}", self.next_quest);
+    //debug!("nq {:?}", self.next_quest);
   }
 
   pub fn update_player_dmap(&mut self) {
@@ -533,7 +533,7 @@ impl SimulationState {
       (*rgr).clone()
     } else if unit_id == PLAYER_UNIT_ID {
       let rgr = Ref::new(Ragdoll {
-        pos: Vec2::from(self.player_pos),
+        pos: self.player_relative_coordinates(Vec2::from(self.player_pos)),
         color: BLACK,
         img: HERO,
         dead: false,
@@ -545,7 +545,7 @@ impl SimulationState {
         panic!("tried to generate ragdoll for an id that doesn't exist")
       };
       let rgr = Ref::new(Ragdoll {
-        pos: Vec2::from(*pos),
+        pos: self.player_relative_coordinates(Vec2::from(*pos)),
         color: BLACK,
         img: UNKNOWN_ENEMY,
         dead: false,
@@ -849,16 +849,6 @@ async fn main() {
           for p in fulfilled_quests.keys() {
             sim.quests.remove(*p);
           }
-
-          // if let Some(quest) = sim.quests.get(ppos) {
-          //   if quest.quota < 1 {
-          //     sim.quests.remove(ppos);
-          //     for i in 0..5 {
-          //       // TODO: heal particle
-          //       sim.full_heal().chain();
-          //     }
-          //   }
-          // }
         }
 
       }
@@ -917,7 +907,7 @@ async fn main() {
           sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
           sim.launch_particle(from, to,
             prize_img(prize), RED,
-            3., 0.05
+            3., 0.02
           ).chain();
           sim.full_heal().chain();
         }
@@ -1046,15 +1036,14 @@ async fn main() {
             //spawn a monster in this tile
             let random_enemy_type =
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
-            let nme = Enemy::new(random_enemy_type);
-            sim.enemies.insert(p, nme);
-            spawns.push(nme.id);
+            spawns.push((random_enemy_type,p));
             //debug!("spawned a monster {:?} at {:?}", nme.t, p)
           }
         }
-        // initialize ragdolls
-        for &nme_id in &spawns { sim.ragdoll_ref(nme_id); }
         monster_turns -= 1;
+        for(t,p) in &spawns {
+          sim.spawn_enemy(*t,*p);
+        }
       }
     }
 
