@@ -19,6 +19,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "heart.png",
   "road16.png",
   "scroll.png",
+  "blocked.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -34,6 +35,7 @@ pub const HERO: Img = def("hero.png");
 pub const QUEST: Img = def("npc.png");
 pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 pub const SCROLL: Img = def("scroll.png");
+pub const BLOCKED: Img = def("blocked.png");
 
 pub const fn enemy_img(nme: EnemyType) -> Img {
   let path = match nme {

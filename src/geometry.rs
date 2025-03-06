@@ -169,6 +169,20 @@ impl From<Dir4> for Dir8 {
     unsafe{ std::mem::transmute(x) }
   }
 }
+
+impl TryFrom<IVec> for Dir8 {
+  type Error = ();
+  fn try_from(value: IVec) -> Result<Self, Self::Error> {
+    for i in 0..IVec::DIRS.len() {
+      if IVec::DIRS[i] == value {
+        let d: Dir8 = unsafe { std::mem::transmute(i as u8) };
+        return Ok(d);
+      }
+    }
+    Err(())
+  }
+}
+
 //}}}
 
 // Dir4{{{
@@ -215,7 +229,7 @@ impl Dir4 {
 
   pub fn rotate4(&self, amount: i8) -> Self {
     let r = Dir8::from(*self).rotate8(amount * 2);
-    r.try_into().unwrap()
+    Dir4::try_from(r).unwrap()
   }
 }
 
@@ -228,6 +242,16 @@ impl TryFrom<Dir8> for Dir4 {
     Ok(unsafe{ std::mem::transmute(x) })
   }
 }
+
+impl TryFrom<IVec> for Dir4 {
+  type Error = ();
+  fn try_from(value: IVec) -> Result<Self, Self::Error> {
+    let it = Dir8::try_from(value)?;
+    Dir4::try_from(it)
+  }
+}
+
+
 //}}}
 
 // Position{{{

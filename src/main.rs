@@ -525,6 +525,39 @@ impl SimulationState {
     })
   }
 
+
+  pub fn in_combat(&mut self) -> bool {
+    let mut in_combat = false;
+    for d in Dir4::list() {
+      let adj = self.player_pos + d.into();
+      // monsters in void don't count
+      if self.board[adj] == Tile::default() { continue; }
+      in_combat = in_combat || self.enemies.get(adj).is_some();
+    }
+    in_combat
+  }
+
+  pub fn is_road_dir(&self, dir: Dir4) -> bool {
+    // two cases:
+    // 1) there is an existing road here we can take
+    // 2) there is a half road here, with the other half
+    //    in hand and oriented the right way
+    // either way, the check for the first half of the road is the same
+    let target = self.player_pos + dir.into();
+    let opp = dir.opposite();
+    let first_half = Terrain::Road ==
+      self.board[self.player_pos].contents[dir.index()];
+
+    let second_half = Terrain::Road ==
+      if self.board[target] == Tile::default() {
+        self.player_current_tile().contents[opp.index()]
+      } else {
+        self.board[target].contents[opp.index()]
+      };
+    first_half && second_half
+  }
+
+
   pub fn add_tiles(&mut self, amount: i64) -> &mut Animation {
     self.player_tiles += amount;
     let hudref = self.hud.clone();
@@ -730,23 +763,15 @@ async fn main() {
 
     let mut tile_placed: bool = false;
     let mut player_moved: bool = false;
-    let mut in_combat = false;
     let mut needs_road = false;
     let mut can_move = true;
 
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
       let target_empty = sim.board[target] == Tile::default();
-      for d in Dir4::list() { // are we in combat?
-        let adj = sim.player_pos + d.into();
-        // monsters in void don't count
-        if sim.board[adj] == Tile::default() { continue; }
-        in_combat = in_combat || sim.enemies.get(adj).is_some();
-      }
 
       // do combat
-
-      if in_combat {
+      if sim.in_combat() {
         let mut defeated_boss = false;
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
           let mut speed_mul: f64 = 1.;
@@ -859,28 +884,7 @@ async fn main() {
         }
 
       }
-      let using_road = {
-        // two cases:
-        // 1) there is an existing road here we can take
-        // 2) there is a half road here, with the other half
-        //    in hand and oriented the right way
-        // either way, the check for the first half of the road is the same
-
-        let d1 = playermove;
-        let d2 = playermove.opposite();
-        let first_half = Terrain::Road ==
-          sim.board[sim.player_pos].contents[d1.index()];
-
-        let second_half = Terrain::Road ==
-          if target_empty {
-            sim.player_current_tile().contents[d2.index()]
-          } else {
-            sim.board[target].contents[d2.index()]
-          };
-
-        first_half && second_half
-      };
-
+      let using_road = sim.is_road_dir(playermove);
       can_move = can_move && (!needs_road || using_road);
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
       if !player_moved && can_move { // move player
@@ -1062,6 +1066,7 @@ async fn main() {
       screen_height() / display.dim.y as f32,
     );
 
+    const DRAW_BOUNDS:IRect = IRect{ x: -8, y:-8, width: 17, height: 17};
     { // Redraw the display
       set_camera(&display.render_to);
       clear_background(DARKPURPLE);
@@ -1075,7 +1080,7 @@ async fn main() {
       //}
 
       // Draw terrain
-      for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
+      for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
         let tile = sim.board[p];
         let r = display.pos_rect(p.into());
@@ -1099,6 +1104,32 @@ async fn main() {
           ragdoll.color,
           &ragdoll.img
         );
+      }
+
+      for offset in DRAW_BOUNDS.iter() { // blocked tile hints
+        let p = sim.player_pos + offset;
+        let mut blocked = false;
+        // if the target is in the frontier
+        // and the current tile cant fit there (in current orientation), it is blocked
+        if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
+          if sim.tile_compatibility(p, sim.player_current_tile()) == 0 {
+            blocked = true;
+          }
+        }
+
+        if let Ok(d) = Dir4::try_from(offset) {
+          // we're locked in combat, and this is not a road direction
+          if sim.in_combat() && !sim.is_road_dir(d) {
+            // we can't step on void
+            blocked = blocked || sim.board[p] == Tile::default();
+            // we can't step on a free space
+            blocked = blocked || !sim.enemies.contains_key(p);
+          }
+        }
+
+        if blocked {
+          display.draw_grid( p.into(), DARKGRAY, &BLOCKED);
+        }
       }
 
       { // draw HUD
