@@ -1,9 +1,29 @@
+- level-up reminder
+- animate tile rotation
+- animate tile placement
+- instructions
+- highlight perfect tile during tile reward
+- placement hints
+  - tile compatibility
+  - rotation hints
+- monster alert state
+- tile distribution metrics
+- healing particle for level-up
+- control hints in hud at relevant times
+  - [x] to discard (if discard is forced)
+  - [z] to level (if level available)
+    - blinks when active
+- slow down the animations
+- indicate legal movement directions
+
+
+
++ combat restriction doesn't show on blackness
 + handle split bridge rendering for terrain16
-- river16
++ river16
 + town16
 + forest wedge
 + grass wedge
-- tile distribution metrics
 
 
 + draw terrain by layer instead of by poisiton

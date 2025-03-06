@@ -1174,9 +1174,9 @@ async fn main() {
 
 
         if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
+          blocked_color = GRAY;
           if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
             blocked = true;
-            blocked_color = GRAY;
           }
         }
 
