@@ -84,6 +84,13 @@ impl Terrain {
       _ => false,
     }
   }
+
+  pub fn draw16(self) -> bool {
+    match self {
+      Self::Road => true,
+      _ => false
+    }
+  }
 }
 
 

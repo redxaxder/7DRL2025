@@ -17,6 +17,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "tile.png",
   "boss.png",
   "heart.png",
+  "road16.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -53,8 +54,23 @@ pub const fn prize_img(prize: Prize) -> Img {
 fn terrain_path(terrain: Terrain) -> &'static str {
   // TODO fill in filepaths for real terrain
   match terrain {
+    Terrain::Road =>  "road16.png",
     _ =>  "terrain_placeholder.png",
   }
+}
+
+pub fn terrain16(terrain: Terrain, signature: [bool;4]) -> Img {
+  let path = terrain_path(terrain);
+  let mut x = 0.;
+  let mut y = 0.;
+  if signature[0] { x += 1.; }
+  if signature[1] { x += 2.; }
+  if signature[2] { y += 1.; }
+  if signature[3] { y += 2.; }
+  x *= 128.;
+  y *= 128.;
+  let rect = Rect { x, y, w: 128., h: 128. };
+  Img { rect, path }
 }
 
 pub fn terrain_triangle(terrain: Terrain, d: Dir4) -> Img {

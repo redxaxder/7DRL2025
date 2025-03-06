@@ -114,51 +114,62 @@ impl Display {
     self.draw_img(self.pos_rect(position), color, image);
   }
 
+
   pub fn draw_tile(&self, rect: Rect, tile: Tile) {
     for &terrain in Terrain::DRAW_ORDER {
-      // is there a pair of adjacent sides of this terrain type?
-      let mut adjacent = false;
-      // is there a pair of opposite sides of this terrain type?
-      let mut opposite = false;
-      for d in Dir4::list() {
-        if tile.contents[d.index()] != terrain {
-          continue;
-        }
-        let n = d.rotate4(1);
-        if tile.contents[n.index()] == terrain {
-          adjacent = true;
-        }
-        let o = d.opposite();
-        if tile.contents[o.index()] == terrain {
-          opposite = true;
-        }
-      }
-      if adjacent {
-        // any adjacency implies triangle
-        for d in Dir4::list() {
-          if tile.contents[d.index()] != terrain { continue; }
-          let img = terrain_triangle(terrain, d);
-          self.draw_img(rect, terrain.color(), &img);
-        }
-      } else if opposite && tile.contents[4] == terrain {
-        // no adjacency + opposite + center implies bridge
-        for d in Dir4::list() {
-          if tile.contents[d.index()] != terrain { continue; }
-          let img = terrain_bridge(terrain, d);
-          self.draw_img(rect, terrain.color(), &img);
-          break; // a single bridge image covers both directions
-        }
-      } else {
-        // fallthrough is wedge
-        for d in Dir4::list() {
-          if tile.contents[d.index()] != terrain { continue; }
-          let img = terrain_wedge(terrain, d);
-          self.draw_img(rect, terrain.color(), &img);
-        }
-
-      }
+      self.draw_tile_1(rect, tile, terrain);
     }
   }
+
+
+  pub fn draw_tile_1(&self, rect: Rect, tile: Tile, terrain: Terrain) {
+    let signature: [bool;4] = core::array::from_fn(
+      |i| tile.contents[i] == terrain
+    );
+
+    if terrain.draw16() {
+      let img = terrain16(terrain, signature);
+      self.draw_img(rect, terrain.color(), &img);
+      return;
+    }
+
+    // is there a pair of adjacent sides of this terrain type?
+    let mut adjacent = false;
+    // is there a pair of opposite sides of this terrain type?
+    let mut opposite = false;
+    for d in Dir4::list() {
+      if !signature[d.index()] { continue; }
+      let n = d.rotate4(1);
+      if signature[n.index()] { adjacent = true; }
+      let o = d.opposite();
+      if signature[o.index()] { opposite = true; }
+    }
+    if adjacent {
+      // any adjacency implies triangle
+      for d in Dir4::list() {
+        if tile.contents[d.index()] != terrain { continue; }
+        let img = terrain_triangle(terrain, d);
+        self.draw_img(rect, terrain.color(), &img);
+      }
+    } else if opposite && tile.contents[4] == terrain {
+      // no adjacency + opposite + center implies bridge
+      for d in Dir4::list() {
+        if tile.contents[d.index()] != terrain { continue; }
+        let img = terrain_bridge(terrain, d);
+        self.draw_img(rect, terrain.color(), &img);
+        break; // a single bridge image covers both directions
+      }
+    } else {
+      // fallthrough is wedge
+      for d in Dir4::list() {
+        if tile.contents[d.index()] != terrain { continue; }
+        let img = terrain_wedge(terrain, d);
+        self.draw_img(rect, terrain.color(), &img);
+      }
+
+    }
+  }
+
 }
 
 pub type ScreenCoords = Vec2;
