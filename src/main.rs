@@ -15,6 +15,8 @@ const STARTING_HP: i64 = 5;
 const STARTING_TILES: i64 = 30;
 
 const DEBUG_IMMORTAL: bool = false;
+const BOSS_LOCATION:IVec = IVec::ZERO;
+
 
 //const MONSTER_COLOR: Color = PURPLE;
 const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
@@ -44,6 +46,7 @@ struct SimulationState {
   void_frontier: Set<Position>,
 
   enemies: WrapMap<Enemy>,
+  num_bosses: usize,
   rng: Rng,
 
   quests: WrapMap<Quest>,
@@ -70,6 +73,7 @@ pub struct Hud {
   pub tiles: i64,
   pub turns: i64,
   pub defeat: bool,
+  pub bosses: usize,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -80,6 +84,7 @@ impl Hud {
       tiles: STARTING_TILES,
       turns: 0,
       defeat: false,
+      bosses: NUM_BOSSES,
     }
   }
 }
@@ -127,6 +132,7 @@ impl SimulationState {
       rng: from_current_time(),
       player_dmap: Buffer2D::new(0, BOARD_RECT),
       nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
+      num_bosses: NUM_BOSSES,
 
       // Animation stuff
       animations: AnimationQueue::new(),
@@ -146,7 +152,7 @@ impl SimulationState {
     sim.place_tile(Position { x: -1, y: -1 }, boss_lair_tiles[6]);
     sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
     sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
-    sim.spawn_enemy(EnemyType::GhostWitch, IVec::ZERO);
+    sim.spawn_enemy(EnemyType::GhostWitch, BOSS_LOCATION);
     sim.move_player(sim.player_pos);
     sim.next_tile();
 
@@ -805,11 +811,18 @@ async fn main() {
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
           let mut speed_mul: f64 = 1.;
           let mut delay = 0.;
-          for _ in 0..NUM_BOSSES-1 {
+          while sim.num_bosses > 0 {
+          //for _ in 0..NUM_BOSSES-1 {
             let id = sim.enemies.get(target).unwrap().id;
             delay += 0.3/speed_mul;
             sim.animations.append_empty(delay).reserve(id);
             sim.slay_enemy(target, playermove, &display);
+            sim.num_bosses -= 1;
+            let hudref = sim.hud.clone();
+            sim.animations.append(move |_| unsafe {
+              hudref.get().bosses -= 1;
+              false
+            }).reserve(id);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
             speed_mul += 0.5;
             if sim.player_hp < 1 {
@@ -1152,7 +1165,7 @@ async fn main() {
         }
       }
 
-      // draw units
+      // draw enemies
       for ragdoll in sim.ragdolls.values() {
         display.draw_grid(
           ragdoll.pos,
@@ -1160,6 +1173,27 @@ async fn main() {
           &ragdoll.img
         );
       }
+
+
+      // draw boss count
+      for offset in DRAW_BOUNDS.iter() { // draw quests and prized
+        let p = sim.player_pos + offset;
+        if p != BOSS_LOCATION { continue; }
+        let r = display.pos_rect(p.into());
+        let text = format!("{}", sim.hud.bosses);
+        let font_size = 70;
+        if sim.hud.bosses >= 2 {
+          let metrics = measure_text(&text, None, font_size, 1.);
+          let leftover = r.w - metrics.width;
+
+          draw_text(&text, r.x + 0.5 * leftover,
+            r.y + metrics.offset_y - (r.h * 0.15),
+            font_size as f32, MONSTER_COLOR
+            );
+
+        }
+      }
+
 
       for offset in DRAW_BOUNDS.iter() { // blocked tile hints
         let p = sim.player_pos + offset;
