@@ -145,6 +145,7 @@ impl SimulationState {
     sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
     sim.spawn_enemy(EnemyType::GhostWitch, IVec::ZERO);
     sim.move_player(sim.player_pos);
+    sim.next_tile();
 
     sim
   }
@@ -742,7 +743,6 @@ async fn main() {
   warn!("Or warnings, the yellow ones.");
 
   let mut sim = SimulationState::new();
-  sim.next_tile();
 
   let mut resources = Resources::new(ASSETS);
   for path in LOAD_ME { resources.load_texture(path, FilterMode::Linear); }
@@ -760,6 +760,10 @@ async fn main() {
     let mut inputdir: Option<Dir4> = None;
 
     if let Some(input) = get_input() {
+      if sim.hud.defeat {
+        sim = SimulationState::new();
+        continue;
+      }
       match input {
         Input::Dir(dir) => {
           inputdir = Some(dir)

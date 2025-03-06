@@ -1,10 +1,15 @@
 - draw terrain by layer instead of by poisiton
-- ui hints for blocked movement
-  - from combat
-  - from placement rules
+- negative margins
+- river16
+- town16
+- forest wedge
+- grass wedge
 - tile distribution metrics
 
 
++ ui hints for blocked movement
+  + from combat
+  + from placement rules
 + particles
   + hp
   + speed penalty
