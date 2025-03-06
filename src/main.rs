@@ -775,9 +775,11 @@ async fn main() {
           sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
         }
         Input::Discard => {
-          sim.next_quest = None;
-          sim.next_tile();
-
+          if sim.player_tiles > 0 {
+            sim.next_quest = None;
+            sim.next_tile();
+          }
+          
         }
         Input::LevelUp => {
           sim.player_level_up()
@@ -912,6 +914,9 @@ async fn main() {
       let using_road = sim.is_road_dir(playermove);
       can_move = can_move && (!needs_road || using_road);
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
+      if sim.player_tiles < 1  && sim.board[target] == Tile::default() {
+        can_move = false;
+      }
       if !player_moved && can_move { // move player
 
         let target_is_slow: bool = {
@@ -949,7 +954,7 @@ async fn main() {
         }
 
         // try to place tile
-        if sim.board[sim.player_pos] == Tile::default() {
+        if sim.board[sim.player_pos] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(sim.player_pos, sim.player_current_tile());
           sim.next_tile();
           tile_placed = true;
@@ -1159,7 +1164,7 @@ async fn main() {
         // if the target is in the frontier
         // and the current tile cant fit there (in current orientation), it is blocked
         if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
-          if sim.tile_compatibility(p, sim.player_current_tile()) == 0 {
+          if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
             blocked = true;
           }
         }
