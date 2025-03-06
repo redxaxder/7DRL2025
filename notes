@@ -66,13 +66,13 @@ v0.2 "iterable"
              + exception for roads
            + not eligible for terrain quest if no river source
    + grass + no changes. just didn't want to leave you out, bro
- - victory
-   - collect mcguffin which starts under a monster
-     + 4th monster type that doesn't take a turn
-       + spawns on map with starting tiles
-     + backup monsters stream in from a unique cave tile
+ + victory
+    + 4th monster type that doesn't take a turn
+    + spawns on map with starting tiles
+    + backup monsters stream in from a unique cave tile
 v0.3 "qol"
  - end game screen / detection
+ - there is a boss mcguffin that gives you like a million tiles
  - animate particles for
    + gaining exp
    - gaining tiles

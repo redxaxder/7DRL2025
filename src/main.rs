@@ -14,6 +14,8 @@ const QUEST_REWARD: i64 = 5;
 const STARTING_HP: i64 = 5;
 const STARTING_TILES: i64 = 30;
 
+const DEBUG_IMMORTAL: bool = false;
+
 struct SimulationState {
   player_pos: Position,
   player_hp: i64,
@@ -141,7 +143,7 @@ impl SimulationState {
     let nme = Enemy::new(t);
     self.enemies.insert(at, nme);
     let rdr = self.ragdoll_ref(nme.id);
-    if (self.board[at] != Tile::default()) {
+    if self.board[at] != Tile::default() {
       unsafe { rdr.get().img = enemy(nme.t); }
     }
   }
@@ -685,11 +687,16 @@ async fn main() {
   let display_dim: Vec2 = DISPLAY_GRID.dim();
   let mut display = Display::new(resources, display_dim);
 
+  let mut victory = false;
+  let mut defeat = false;
+
   loop {
     if get_keys_pressed().len() > 0 {
       sim.animations.hurry(2.);
     }
+
     let mut inputdir: Option<Dir4> = None;
+
     if let Some(input) = get_input() {
       match input {
         Input::Dir(dir) => {
@@ -715,6 +722,7 @@ async fn main() {
     let mut in_combat = false;
     let mut needs_road = false;
     let mut can_move = true;
+
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
       let target_empty = sim.board[target] == Tile::default();
@@ -728,6 +736,7 @@ async fn main() {
       // do combat
 
       if in_combat {
+        let mut defeated_boss = false;
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
           let mut speed_mul: f64 = 1.;
           let mut delay = 0.;
@@ -738,6 +747,9 @@ async fn main() {
             sim.slay_enemy(target, playermove, &display);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
             speed_mul += 0.5;
+          }
+          if sim.player_hp > 0 {
+            defeated_boss = true;
           }
         }
         let crowd: Map<Position, u8> = {
@@ -754,7 +766,11 @@ async fn main() {
               if result.contains_key(&cursor) { continue; }
               if !sim.enemies.contains_key(cursor) { continue; }
               if sim.board[cursor] == Tile::default() { continue; }
-              if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(cursor) { continue; }
+              if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(cursor) {
+                if !defeated_boss {
+                  continue;
+                }
+              }
               result.insert(cursor, distance);
               for d in Dir4::list() {
                 let neighbor = cursor + d.into();
@@ -792,6 +808,7 @@ async fn main() {
             }
             player_moved = true;
           }
+          victory = defeated_boss && sim.player_hp > 0;
         } else { // nobody in this spot to fight
           needs_road = true;
         }
@@ -952,6 +969,24 @@ async fn main() {
           }
         }
       }
+      if sim.player_hp < 1 && !DEBUG_IMMORTAL {
+        defeat = true;
+
+        let dirvec: Vec2 = (target - sim.player_pos).into();
+        let mut velocity: Vec2 = Vec2::from(dirvec) * 3.;
+        velocity.x += (sim.rng.next_u32() % 1000) as f32 / 1000.;
+        velocity.y += (sim.rng.next_u32() % 1000) as f32 / 1000.;
+        velocity *= 8.;
+        sim.animate_unit_fling(
+          PLAYER_UNIT_ID,
+          dirvec * 3.,
+          velocity,
+          0.2).require(PLAYER_UNIT_ID);
+      }
+    }
+
+    defeat = sim.player_hp < 1 || DEBUG_IMMORTAL;
+    if defeat {
     }
 
     //debug!("{:?}", sim.player_pos);
@@ -1196,10 +1231,26 @@ async fn main() {
       );
     }
 
+    next_frame().await;
 
+    if victory || defeat && sim.animations.len() == 0 {
+      break;
+    }
+  }
 
-
-    next_frame().await
+  if victory {
+    clear_background(BLACK);
+    loop {
+      draw_text("You win!", 300., 300., 64., WHITE);
+      next_frame().await;
+    }
+  }
+  if defeat {
+    clear_background(BLACK);
+    loop {
+      draw_text("Defeat...", 300., 300., 64., WHITE);
+      next_frame().await;
+    }
   }
 }
 
@@ -1335,7 +1386,7 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
   }
   nme_counts = nme_counts
     .iter()
-    .filter(|(t, c)| **c > 0)
+    .filter(|(_, c)| **c > 0)
     .map(|(k,v)| (*k, *v))
     .collect();
   debug!("nme_counts {:?}", nme_counts);
