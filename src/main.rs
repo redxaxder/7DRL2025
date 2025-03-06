@@ -146,7 +146,10 @@ impl SimulationState {
     self.enemies.insert(at, nme);
     let rdr = self.ragdoll_ref(nme.id);
     if self.board[at] != Tile::default() {
-      unsafe { rdr.get().img = enemy_img(nme.t); }
+      unsafe {
+        rdr.get().img = enemy_img(nme.t);
+        rdr.get().color = BLACK;
+      }
     }
   }
 
@@ -366,7 +369,7 @@ impl SimulationState {
           self.player_dmap[visit] = d;
           for d in Dir4::list() {
             let neighbor = visit + d.into();
-            if self.player_dmap[neighbor] == i16::MAX 
+            if self.player_dmap[neighbor] == i16::MAX
               && self.board[neighbor] != Tile::default()
             {
               next_frontier.push(neighbor);
@@ -435,7 +438,11 @@ impl SimulationState {
         if self.board[from] == Tile::default() {
           let rgr = self.ragdoll_ref(nme.id).clone();
           self.animations.append(move |_time| {
-            unsafe { rgr.get().img = enemy_img(nme.t); }
+            unsafe {
+              let ragdoll = rgr.get();
+              ragdoll.img = enemy_img(nme.t);
+              ragdoll.color = BLACK;
+            }
             false
           }).chain();
         }
@@ -541,12 +548,12 @@ impl SimulationState {
       self.ragdolls.insert(unit_id, rgr.clone());
       rgr
     } else {
-      let Some((pos, _nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
+      let Some((&pos, _nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
         panic!("tried to generate ragdoll for an id that doesn't exist")
       };
       let rgr = Ref::new(Ragdoll {
-        pos: self.player_relative_coordinates(Vec2::from(*pos)),
-        color: BLACK,
+        pos: self.player_relative_coordinates(Vec2::from(pos)),
+        color: RED,
         img: UNKNOWN_ENEMY,
         dead: false,
       });
@@ -1293,7 +1300,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board); 
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
     valid = Dir4::list().into();
@@ -1367,7 +1374,7 @@ pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
 pub fn town_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
   //this is slightly different from forest_edges because the town edge
   //logic for monsters is one-way
-  
+
   // right up left down (matching dir4.index)
   let mut candidates: Vec<Dir4> = Vec::new();
   let tile: Tile = board[*pos];
