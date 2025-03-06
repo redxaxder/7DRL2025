@@ -33,9 +33,9 @@ v0.2 "iterable"
             + there must be at least one monster type for which there is no ongoing quest
             + there must be at least 1 of such a monster
         + on completion, get 5 tiles
-        - on completion, drop quest heal item
-        - heal item heals player
-        - monsters can't step on it
+        + on completion, drop quest heal item
+        + heal item heals player
+        + monsters can't step on it
  + perfect tile bonus (+1 tile)
  + combat
    + restrict movement when by a monster
@@ -75,10 +75,10 @@ v0.3 "qol"
  - there is a boss mcguffin that gives you like a million tiles
  - animate particles for
    + gaining exp
-   - gaining tiles
-   - gaining hp
-   - gaining speed penalty
- - animate quest completion??
+   + gaining tiles
+   + gaining hp
+   + gaining speed penalty
+ + animate quest completion??
  - restart
  - quest speech bubbles
  + monster behavior by type

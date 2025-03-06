@@ -1320,6 +1320,8 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     if sim.board[target] == Tile::default() { continue; }
     // dont step on quest
     if sim.quests.contains_key(target) { continue; }
+    // dont step on prize
+    if sim.prizes.contains_key(target) { continue; }
     candidates.push(target);
   }
   if sim.board[pos] != Tile::default() {
