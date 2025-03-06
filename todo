@@ -1,5 +1,3 @@
-- draw terrain by layer instead of by poisiton
-- negative margins
 - river16
 - town16
 - forest wedge
@@ -7,6 +5,8 @@
 - tile distribution metrics
 
 
++ draw terrain by layer instead of by poisiton
++ negative margins
 + ui hints for blocked movement
   + from combat
   + from placement rules

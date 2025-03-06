@@ -1114,14 +1114,27 @@ async fn main() {
       //  draw_circle(v.x, v.y, 20., BLUE);
       //}
 
-      // Draw terrain
+      // Draw tile backgrounds
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
-        let tile = sim.board[p];
+        if sim.board[p] == Tile::default() { continue; }
         let r = display.pos_rect(p.into());
-        display.draw_tile(r, tile);
+        draw_rectangle(r.x, r.y, r.w, r.h, DARKBROWN);
+        //display.draw_tile_1(r, tile, terrain);
+      }
+      // draw terrain
+      for &terrain in Terrain::DRAW_ORDER {
+        for offset in DRAW_BOUNDS.iter() {
+          let p = sim.player_pos + offset;
+          let tile = sim.board[p];
+          let r = display.pos_rect(p.into());
+          display.draw_tile_1(r, tile, terrain);
+        }
+      }
+      for offset in DRAW_BOUNDS.iter() { // draw quests and prized
+        let p = sim.player_pos + offset;
+        let r = display.pos_rect(p.into());
         if sim.quests.contains_key(p) {
-          // draw quest
           let quest = sim.quests[p];
           draw_quest(&display, &r, &quest);
         }
@@ -1129,7 +1142,6 @@ async fn main() {
           let img = prize_img(*prize);
           display.draw_img(r, RED, &img);
         }
-
       }
 
       // draw units
