@@ -20,6 +20,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "boss.png",
   "heart.png",
   "road16.png",
+  "town16.png",
   "scroll.png",
   "blocked.png",
 ];
@@ -63,6 +64,7 @@ fn terrain_path(terrain: Terrain) -> &'static str {
     Terrain::Road =>  "road16.png",
     Terrain::Grass => "terrain_grass.png",
     Terrain::Forest => "terrain_forest.png",
+    Terrain::Town => "town16.png",
     _ =>  "terrain_placeholder.png",
   }
 }

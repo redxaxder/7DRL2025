@@ -127,10 +127,23 @@ impl Display {
     let signature: [bool;4] = core::array::from_fn(
       |i| tile.contents[i] == terrain
     );
+    let center = tile.contents[4] == terrain;
+    let is_bridge = signature == [true,false,true,false]
+      || signature == [false,true,false,true];
 
     if terrain.draw16() {
-      let img = terrain16(terrain, signature);
-      self.draw_img(rect, terrain.color(), &img);
+      if is_bridge && !center {
+        for i in 0..4 {
+          if signature[i] {
+            let s = core::array::from_fn(|x| x == i);
+            let img = terrain16(terrain, s);
+            self.draw_img(rect, terrain.color(), &img);
+          }
+        }
+      } else {
+        let img = terrain16(terrain, signature);
+        self.draw_img(rect, terrain.color(), &img);
+      }
       return;
     }
 

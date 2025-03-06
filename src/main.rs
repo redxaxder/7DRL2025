@@ -1180,7 +1180,7 @@ async fn main() {
         }
 
         if blocked {
-          display.draw_grid( p.into(), DARKGRAY, &BLOCKED);
+          display.draw_grid( p.into(), GRAY, &BLOCKED);
         }
       }
 

@@ -1,7 +1,8 @@
++ handle split bridge rendering for terrain16
 - river16
-- town16
-- forest wedge
-- grass wedge
++ town16
++ forest wedge
++ grass wedge
 - tile distribution metrics
 
 
