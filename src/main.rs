@@ -24,6 +24,7 @@ struct SimulationState {
   player_level: i64,
   player_tiles: i64,
   player_next_tile: Tile,
+  player_defeat: bool,
   next_quest: Option<Quest>,
   player_tile_transform: D8,
   monster_turns: i64,
@@ -65,6 +66,7 @@ pub struct Hud {
   pub hp_color: Color,
   pub tiles: i64,
   pub turns: i64,
+  pub defeat: bool,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -74,6 +76,7 @@ impl Hud {
       hp_color: WHITE,
       tiles: STARTING_TILES,
       turns: 0,
+      defeat: false,
     }
   }
 }
@@ -104,6 +107,7 @@ impl SimulationState {
       player_level: 1,
       player_tiles: STARTING_TILES,
       player_next_tile: Tile::default(),
+      player_defeat: false,
       next_quest: None,
       player_tile_transform: D8::E,
       monster_turns: 0,
@@ -586,7 +590,7 @@ impl SimulationState {
     } else if unit_id == PLAYER_UNIT_ID {
       let rgr = Ref::new(Ragdoll {
         pos: self.player_relative_coordinates(Vec2::from(self.player_pos)),
-        color: BLACK,
+        color: WHITE,
         img: HERO,
         dead: false,
       });
@@ -747,7 +751,6 @@ async fn main() {
   let mut display = Display::new(resources, display_dim);
 
   let mut victory = false;
-  let mut defeat = false;
 
   loop {
     if get_keys_pressed().len() > 0 {
@@ -841,6 +844,7 @@ async fn main() {
         if crowd.len() > 0 { // fight!
           let mut speed_mul: f64 = 1.;
           while sim.enemies.contains_key(target) {
+            if sim.player_hp < 1 { break; }
             speed_mul += 0.5;
             sim.slay_enemy(target, playermove, &display);
             // enemies behind move up
@@ -1014,18 +1018,23 @@ async fn main() {
         }
       }
       if sim.player_hp < 1 && !DEBUG_IMMORTAL {
-        defeat = true;
+        sim.player_defeat = true;
 
         let dirvec: Vec2 = (sim.player_pos - target).into();
         let mut velocity: Vec2 = Vec2::from(dirvec) * 3.;
         velocity.x += (sim.rng.next_u32() % 1000) as f32 / 1000.;
         velocity.y += (sim.rng.next_u32() % 1000) as f32 / 1000.;
-        velocity *= 8.;
+        velocity *= 2.;
         sim.animate_unit_fling(
           PLAYER_UNIT_ID,
-          dirvec * 3.,
+          sim.player_pos.into(),
           velocity,
-          0.2).reserve(PLAYER_UNIT_ID);
+          2.).reserve(PLAYER_UNIT_ID);
+        let hudref = sim.hud.clone();
+        sim.animations.append(move |_| unsafe {
+          hudref.get().defeat = true;
+          false
+        }).chain();
       }
     }
 
@@ -1171,8 +1180,7 @@ async fn main() {
           draw_rectangle(x, y, w, h, DARKGRAY);
         }
 
-        if defeat {
-            let r = sim.layout[&HudItem::Tile];
+        if sim.hud.defeat {
             let bar = sim.layout[&HudItem::Bar];
             let display_text = format!("Defeated...");
             let textdim: TextDimensions = measure_text(&display_text, None, font_size, font_scale);
