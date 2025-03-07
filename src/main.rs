@@ -1195,7 +1195,7 @@ async fn main() {
       screen_height() / display.dim.y as f32,
     );
 
-    const DRAW_BOUNDS:IRect = IRect{ x: -8, y:-8, width: 17, height: 17};
+    const DRAW_BOUNDS:IRect = IRect{ x: -9, y:-8, width: 18, height: 17};
     { // Redraw the display
       set_camera(&display.render_to);
       clear_background(DARKPURPLE);

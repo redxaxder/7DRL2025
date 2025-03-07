@@ -99,7 +99,7 @@ impl Terrain {
 
 const TERRAIN_COLOR: &[Color] = &[
   BLACK,
-  GREEN,
+  Color{r:0., g:0.6, b:0.2, a: 1.},
   GOLD,
   BLUE,
   WHITE,
