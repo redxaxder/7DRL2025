@@ -62,7 +62,7 @@ pub struct Display {
 impl Display {
   pub fn new(resources: Resources, dim: Vec2) -> Self {
     let buffer = render_target(dim.x as u32, dim.y as u32);
-    buffer.texture.set_filter(FilterMode::Nearest);
+    buffer.texture.set_filter(FilterMode::Linear);
     let render_to = {
       let mut x = Camera2D::from_display_rect( Rect::new(
           0., 0., dim.x as f32, dim.y as f32

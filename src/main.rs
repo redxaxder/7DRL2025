@@ -12,10 +12,13 @@ const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
 
 const STARTING_HP: i64 = 5;
-const STARTING_TILES: i64 = 30;
+const STARTING_TILES: i64 = 60;
 
 const DEBUG_IMMORTAL: bool = false;
 const BOSS_LOCATION:IVec = IVec::ZERO;
+
+const BASE_ANIMATION_DURATION: f64 = 0.5;
+
 
 
 //const MONSTER_COLOR: Color = PURPLE;
@@ -23,6 +26,7 @@ const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
 
 struct SimulationState {
   player_pos: Position,
+  player_immortal: bool,
   player_hp: i64,
   player_hp_max: i64,
   player_xp: i64,
@@ -122,6 +126,7 @@ impl SimulationState {
       player_tiles: STARTING_TILES,
       player_next_tile: Tile::default(),
       player_defeat: false,
+      player_immortal: std::env::var("IMMORTAL").is_ok() || DEBUG_IMMORTAL,
       next_quest: None,
       player_tile_transform: D8::E,
       monster_turns: 0,
@@ -163,6 +168,10 @@ impl SimulationState {
     sim.next_tile();
 
     sim
+  }
+
+  pub fn player_dead(&self) -> bool {
+    self.player_hp < 1 && !self.player_immortal
   }
 
   pub fn transform_tile(&mut self, g: D8) {
@@ -478,7 +487,7 @@ impl SimulationState {
         self.animations.append(empty_animation)
           .reserve([from,to])
           .reserve(nme.id);
-        self.animate_unit_motion(nme.id, t0, mid, 0.2 / speed)
+        self.animate_unit_motion(nme.id, t0, mid, 0.5 * BASE_ANIMATION_DURATION / speed)
           .chain();
         if self.board[from] == Tile::default() {
           let rgr = self.ragdoll_ref(nme.id).clone();
@@ -491,7 +500,7 @@ impl SimulationState {
             false
           }).chain();
         }
-        self.animate_unit_motion(nme.id, mid, t1, 0.2 / speed)
+        self.animate_unit_motion(nme.id, mid, t1, 0.5 * BASE_ANIMATION_DURATION / speed)
           .chain()
           .reserve(to)
           .reserve(nme.id);
@@ -715,7 +724,7 @@ impl SimulationState {
   pub fn move_player(&mut self, to: Position) {
     let from = self.player_pos;
     self.player_pos = to;
-    self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), 0.3)
+    self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), BASE_ANIMATION_DURATION.into())
       .reserve([from,to])
       .reserve(PLAYER_UNIT_ID);
   }
@@ -842,18 +851,16 @@ async fn main() {
           while sim.num_bosses > 0 {
           //for _ in 0..NUM_BOSSES-1 {
             let id = sim.enemies.get(target).unwrap().id;
-            delay += 0.3/speed_mul;
+            delay += BASE_ANIMATION_DURATION/speed_mul;
             sim.animations.append_empty(delay).reserve(id);
             sim.slay_enemy(target, playermove, &display);
             sim.num_bosses -= 1;
             sim.defer_set_hud(|hud| hud.bosses -= 1).reserve(id);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
             speed_mul += 0.5;
-            if sim.player_hp < 1 {
-              break;
-            }
+            if sim.player_dead() { break; }
           }
-          if sim.player_hp > 0 {
+          if !sim.player_dead() {
             defeated_boss = true;
           }
         }
@@ -890,7 +897,7 @@ async fn main() {
         if crowd.len() > 0 { // fight!
           let mut speed_mul: f64 = 1.;
           while sim.enemies.contains_key(target) {
-            if sim.player_hp < 1 { break; }
+            if sim.player_dead() { break; }
             speed_mul += 0.5;
             sim.slay_enemy(target, playermove, &display);
             // enemies behind move up
@@ -914,7 +921,7 @@ async fn main() {
             }
             player_moved = true;
           }
-          victory = defeated_boss && sim.player_hp > 0;
+          victory = defeated_boss && !sim.player_dead();
         } else { // nobody in this spot to fight
           needs_road = true;
         }
@@ -933,7 +940,7 @@ async fn main() {
               let from = display.pos_rect(Vec2::from(ppos)).center();
               let to = sim.layout[&HudItem::Tile].center();
               for i in 0..(QUEST_REWARD as u8) {
-                let delay = f64::from(i) * 0.15;
+                let delay = f64::from(i)* 0.5  * BASE_ANIMATION_DURATION ;
                 sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
                 sim.animations.append_empty(delay)
                   .chain();
@@ -1075,7 +1082,7 @@ async fn main() {
           }
         }
       }
-      if sim.player_hp < 1 && !DEBUG_IMMORTAL {
+      if sim.player_dead() {
         sim.player_defeat = true;
 
         let dirvec: Vec2 = (sim.player_pos - target).into();
@@ -1136,7 +1143,7 @@ async fn main() {
           sim.spawn_enemy(*t,*p);
         }
 
-        sim.animations.append_empty(0.3 / acceleration).chain();
+        sim.animations.append_empty(BASE_ANIMATION_DURATION / acceleration).chain();
         sim.animations.sync_positions().chain();
         sim.add_monster_turns(-1).chain();
         acceleration += 0.5;
@@ -1282,7 +1289,7 @@ async fn main() {
         let font_scale = 1.;
 
         let margin = 15.;
-        let sz = DISPLAY_GRID.full_tile_size();
+        let sz = DISPLAY_GRID.tile_size;       // without tile margin
 
         { // Bar
           let x = 0.;
