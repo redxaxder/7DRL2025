@@ -44,7 +44,7 @@ impl Resources {
         DrawTextureParams {
           dest_size: Some(Vec2{x:w,y:h}),
           source: Some(image.rect),
-          rotation,
+          rotation: -rotation,
           ..Default::default()
         }
       );

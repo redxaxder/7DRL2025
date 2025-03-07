@@ -205,6 +205,7 @@ impl Dir4 {
     self < self.opposite()
   }
 
+  #[inline]
   pub fn index(self) -> usize {
     (self as usize) >> 1
   }
@@ -221,6 +222,17 @@ impl Dir4 {
     result.swap(1, j as usize);
     result.swap(3, k as usize);
     result
+  }
+
+  pub fn radians(self) -> f32 {
+    const RAD: [f32;4] = [
+      0.,
+      1.570796326794896619231321691639751,
+      3.141592653589793238462643383279502,
+      -1.570796326794896619231321691639751,
+    ];
+    RAD[self.index()]
+
   }
 
   pub fn opposite(&self) -> Self {

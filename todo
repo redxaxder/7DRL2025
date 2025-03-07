@@ -1,7 +1,6 @@
-- level-up reminder
-- animate tile rotation
 - animate tile placement
 - instructions
+- level-up reminder
 - highlight perfect tile during tile reward
 - placement hints
   - tile compatibility
@@ -18,6 +17,7 @@
 
 
 
++ animate tile rotation
 + combat restriction doesn't show on blackness
 + handle split bridge rendering for terrain16
 + river16

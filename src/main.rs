@@ -74,6 +74,8 @@ pub struct Hud {
   pub turns: i64,
   pub defeat: bool,
   pub bosses: usize,
+  pub tile_rotation: f32,
+  pub tile_transform: D8,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -85,6 +87,8 @@ impl Hud {
       turns: 0,
       defeat: false,
       bosses: NUM_BOSSES,
+      tile_rotation: 0.,
+      tile_transform: D8::E,
     }
   }
 }
@@ -157,6 +161,35 @@ impl SimulationState {
     sim.next_tile();
 
     sim
+  }
+
+  pub fn transform_tile(&mut self, g: D8) {
+    let duration = 0.5;
+    let hudref = self.hud.clone();
+    let r = (g * Dir4::Right).radians();
+    let t = g * self.player_tile_transform;
+    self.animations.append(move |time| {
+      let p = time.progress(duration);
+      unsafe {
+        hudref.get().tile_rotation = r * p;
+      }
+      p < 1.
+    }).reserve(PLAYER_UNIT_ID);
+    self.defer_set_hud(move |hud| {
+      hud.tile_transform = t;
+      hud.tile_rotation = 0.;
+    }).reserve(PLAYER_UNIT_ID);
+    self.player_tile_transform = g * self.player_tile_transform;
+
+  }
+
+  pub fn defer_set_hud(&mut self, mut f: impl FnMut(&mut Hud) + 'static)
+    -> &mut Animation {
+    let hudref = self.hud.clone();
+    self.animations.append(move |_| unsafe {
+      (f)(hudref.get());
+      false
+    })
   }
 
   pub fn spawn_enemy(&mut self, t: EnemyType, at: Position) {
@@ -360,8 +393,9 @@ impl SimulationState {
 
   pub fn next_tile(&mut self) {
     self.player_next_tile = tiles::generate(&mut self.rng);
-    self.player_tile_transform = D8::E;
-    self.add_tiles(-1);
+    self.defer_set_hud(|hud| hud.tile_rotation = 0.)
+      .reserve(PLAYER_UNIT_ID);
+    self.add_tiles(-1).chain();
 
     // does the next tile have a quest?
     if roll_chance(&mut self.rng, QUEST_SPAWN_CHANCE) {
@@ -371,7 +405,6 @@ impl SimulationState {
         self.next_quest = Some(quest);
       }
     }
-    //debug!("nq {:?}", self.next_quest);
   }
 
   pub fn update_player_dmap(&mut self) {
@@ -544,12 +577,7 @@ impl SimulationState {
 
   pub fn add_monster_turns(&mut self, amount: i64) -> &mut Animation {
     self.monster_turns += amount;
-    let hudref = self.hud.clone();
-    self.animations.append(move |_| unsafe {
-      let hud = hudref.get();
-      hud.turns += amount;
-      false
-    })
+    self.defer_set_hud(move |hud| hud.turns += amount)
   }
 
   pub fn in_combat(&mut self) -> bool {
@@ -586,12 +614,7 @@ impl SimulationState {
 
   pub fn add_tiles(&mut self, amount: i64) -> &mut Animation {
     self.player_tiles += amount;
-    let hudref = self.hud.clone();
-    self.animations.append(move |_| unsafe {
-      hudref.get().tiles += amount;
-      false
-    }).chain()
-
+    self.defer_set_hud(move |hud| hud.tiles += amount)
   }
 
   fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
@@ -778,17 +801,16 @@ async fn main() {
           inputdir = Some(dir)
         }
         Input::Rotate1 => {
-          sim.player_tile_transform = D8::R1 * sim.player_tile_transform;
+          sim.transform_tile(D8::R1);
         }
         Input::Rotate2 => {
-          sim.player_tile_transform = D8::R3 * sim.player_tile_transform;
+          sim.transform_tile(D8::R3);
         }
         Input::Discard => {
           if sim.player_tiles > 0 {
             sim.next_quest = None;
             sim.next_tile();
           }
-          
         }
         Input::LevelUp => {
           sim.player_level_up()
@@ -818,11 +840,7 @@ async fn main() {
             sim.animations.append_empty(delay).reserve(id);
             sim.slay_enemy(target, playermove, &display);
             sim.num_bosses -= 1;
-            let hudref = sim.hud.clone();
-            sim.animations.append(move |_| unsafe {
-              hudref.get().bosses -= 1;
-              false
-            }).reserve(id);
+            sim.defer_set_hud(|hud| hud.bosses -= 1).reserve(id);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
             speed_mul += 0.5;
             if sim.player_hp < 1 {
@@ -1055,11 +1073,7 @@ async fn main() {
           sim.player_pos.into(),
           velocity,
           2.).reserve(PLAYER_UNIT_ID);
-        let hudref = sim.hud.clone();
-        sim.animations.append(move |_| unsafe {
-          hudref.get().defeat = true;
-          false
-        }).chain();
+        sim.defer_set_hud(|hud| hud.defeat = true).chain();
       }
     }
 
@@ -1149,7 +1163,7 @@ async fn main() {
           let p = sim.player_pos + offset;
           let tile = sim.board[p];
           let r = display.pos_rect(p.into());
-          display.draw_tile_1(r, tile, terrain);
+          display.draw_tile_1(r, tile, terrain, 0.);
         }
       }
       for offset in DRAW_BOUNDS.iter() { // draw quests and prized
@@ -1258,7 +1272,11 @@ async fn main() {
               h: sz.y
             };
             sim.layout.insert(HudItem::Tile, r);
-            display.draw_tile(r, sim.player_current_tile());
+            display.draw_tile(
+              r,
+              sim.hud.tile_transform * sim.player_next_tile,
+              sim.hud.tile_rotation as f32
+              );
             if let Some(q) = sim.next_quest {
               draw_quest(&display, &r, &q);
             }

@@ -84,20 +84,30 @@ impl Display {
     Rect { x, y, w, h }
   }
 
-  pub fn draw_img(&self,
+
+  pub fn draw_img_r(&self,
     rect: Rect,
     color: Color,
     image: &Img,
+    rotation: f32,
   ) {
     self.resources.draw_image(
       rect.x,
       rect.y,
       rect.w,
       rect.h,
-      0.,
+      rotation,
       color,
       image,
     );
+  }
+
+  pub fn draw_img(&self,
+    rect: Rect,
+    color: Color,
+    image: &Img,
+  ) {
+    self.draw_img_r(rect, color, image, 0.);
   }
 
   // produces a rect for where a tile at this position is
@@ -115,15 +125,25 @@ impl Display {
   }
 
 
-  pub fn draw_tile(&self, rect: Rect, tile: Tile) {
-    draw_rectangle(rect.x, rect.y, rect.w, rect.h, DARKBROWN);
+  pub fn draw_tile(&self, rect: Rect, tile: Tile, rotation: f32) {
+    draw_rectangle_ex(
+      rect.x + rect.w * 0.5,
+      rect.y + rect.h * 0.5,
+      rect.w,
+      rect.h,
+      DrawRectangleParams{
+        color: DARKBROWN,
+        rotation: -rotation,
+        offset: Vec2{x: 0.5, y: 0.5}
+      }
+      );
     for &terrain in Terrain::DRAW_ORDER {
-      self.draw_tile_1(rect, tile, terrain);
+      self.draw_tile_1(rect, tile, terrain, rotation);
     }
   }
 
 
-  pub fn draw_tile_1(&self, rect: Rect, tile: Tile, terrain: Terrain) {
+  pub fn draw_tile_1(&self, rect: Rect, tile: Tile, terrain: Terrain, rotation: f32) {
     let signature: [bool;4] = core::array::from_fn(
       |i| tile.contents[i] == terrain
     );
@@ -137,12 +157,12 @@ impl Display {
           if signature[i] {
             let s = core::array::from_fn(|x| x == i);
             let img = terrain16(terrain, s);
-            self.draw_img(rect, terrain.color(), &img);
+            self.draw_img_r(rect, terrain.color(), &img, rotation);
           }
         }
       } else {
         let img = terrain16(terrain, signature);
-        self.draw_img(rect, terrain.color(), &img);
+        self.draw_img_r(rect, terrain.color(), &img, rotation);
       }
       return;
     }
@@ -163,14 +183,14 @@ impl Display {
       for d in Dir4::list() {
         if tile.contents[d.index()] != terrain { continue; }
         let img = terrain_triangle(terrain, d);
-        self.draw_img(rect, terrain.color(), &img);
+        self.draw_img_r(rect, terrain.color(), &img, rotation);
       }
     } else if opposite && tile.contents[4] == terrain {
       // no adjacency + opposite + center implies bridge
       for d in Dir4::list() {
         if tile.contents[d.index()] != terrain { continue; }
         let img = terrain_bridge(terrain, d);
-        self.draw_img(rect, terrain.color(), &img);
+        self.draw_img_r(rect, terrain.color(), &img, rotation);
         break; // a single bridge image covers both directions
       }
     } else {
@@ -178,9 +198,8 @@ impl Display {
       for d in Dir4::list() {
         if tile.contents[d.index()] != terrain { continue; }
         let img = terrain_wedge(terrain, d);
-        self.draw_img(rect, terrain.color(), &img);
+        self.draw_img_r(rect, terrain.color(), &img, rotation);
       }
-
     }
   }
 
