@@ -1,6 +1,6 @@
 - animate tile placement
 - instructions
-- level-up reminder
++ level-up reminder
 - placement hints
   + tile compatibility
   - rotation hints
@@ -9,7 +9,6 @@
 - control hints in hud at relevant times
   - [x] to discard (if discard is forced)
   - [z] to level (if level available)
-    - blinks when active
 
 
 

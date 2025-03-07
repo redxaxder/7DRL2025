@@ -1364,7 +1364,14 @@ async fn main() {
               y: bar.y + (0.66 * leftover) + hpr.h,
             };
             draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, sim.hud.hp_color);
-            draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, WHITE);
+            const BLINK: f64 = 1.;
+            let mut xp_color = WHITE;
+            let blink = get_time() % (2. * BLINK) > BLINK;
+            let can_level = sim.hud.xp >= sim.player_xp_next();
+            if can_level && blink {
+              xp_color = YELLOW;
+            };
+            draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, xp_color);
             sim.layout.insert(HudItem::Hp, hpr);
             sim.layout.insert(HudItem::Xp, xpr);
           }
