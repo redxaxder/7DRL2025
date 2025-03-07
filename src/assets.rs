@@ -42,6 +42,7 @@ pub const QUEST: Img = def("npc.png");
 pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 pub const SCROLL: Img = def("scroll.png");
 pub const BLOCKED: Img = def("blocked.png");
+pub const HEART: Img = def("heart.png");
 
 pub const fn enemy_img(nme: EnemyType) -> Img {
   let path = match nme {
@@ -54,10 +55,9 @@ pub const fn enemy_img(nme: EnemyType) -> Img {
 }
 
 pub const fn prize_img(prize: Prize) -> Img {
-  let path = match prize {
-    Prize::Heal => "heart.png",
-  };
-  def(path)
+  match prize {
+    Prize::Heal => HEART,
+  }
 }
 
 

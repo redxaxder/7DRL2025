@@ -1,13 +1,11 @@
 - animate tile placement
 - instructions
 - level-up reminder
-- highlight perfect tile during tile reward
 - placement hints
-  - tile compatibility
+  + tile compatibility
   - rotation hints
 - monster alert state
 - tile distribution metrics
-- healing particle for level-up
 - control hints in hud at relevant times
   - [x] to discard (if discard is forced)
   - [z] to level (if level available)
@@ -17,6 +15,8 @@
 
 
 
++ highlight perfect tile during tile reward
++ healing particle for level-up
 + animate tile rotation
 + combat restriction doesn't show on blackness
 + handle split bridge rendering for terrain16

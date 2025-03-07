@@ -206,14 +206,6 @@ impl SimulationState {
     }
   }
 
-  pub fn player_level_up(&mut self) {
-    if self.player_xp < self.player_xp_next() { return; }
-    self.add_xp(-self.player_xp_next());
-    self.player_hp_max += 1;
-    self.full_heal();
-    self.player_level += 1;
-  }
-
   pub fn player_xp_next(&self) -> i64 {
     self.player_level * 3
   }
@@ -814,9 +806,21 @@ async fn main() {
             sim.next_tile();
           }
         }
-        Input::LevelUp => {
-          sim.player_level_up()
-        }
+        Input::LevelUp =>
+          if sim.player_xp >= sim.player_xp_next() {
+            sim.add_xp(-sim.player_xp_next());
+            sim.player_hp_max += 1;
+            let from = display.pos_rect(
+              sim.player_pos.into()
+            ).center();
+            let to = sim.layout[&HudItem::Hp].center();
+            sim.launch_particle(from, to,
+              HEART, RED,
+              3., 0.02
+            ).chain();
+            sim.full_heal().chain();
+            sim.player_level += 1;
+          }
       }
     }
 
