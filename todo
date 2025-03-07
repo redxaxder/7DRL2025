@@ -8,12 +8,12 @@
 + control hints in hud at relevant times
   + [x] to discard (if discard is forced)
   + [z] to level (if level available)
-- Control over starting terrain layout:
-  - One river
-  - One road
-  - Six grass
-  - Two forest
-  - Two town
++ Control over starting terrain layout:
+  + One river
+  + One road
+  + Six grass
+  + Two forest
+  + Two town
 
 
 

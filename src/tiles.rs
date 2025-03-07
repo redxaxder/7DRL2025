@@ -179,29 +179,25 @@ pub const TABLE: &[(usize, [Terrain;5])] = &[
 
 ];
 
-fn random_terrain(rng: &mut Rng) -> Terrain {
-  let mut t = Terrain::DRAW_ORDER[rng.next_u32() as usize % 5];
-  while t == Terrain::Road {
-    t = Terrain::DRAW_ORDER[rng.next_u32() as usize % 5];
-  }
-  t
-}
-
 // each tile is right up left down (matching dir4.index)
 // [ 1 2 3 ]
 // [ 4 5 6 ]
 // [ 7 8 9 ]
 pub fn boss_lair(rng: &mut Rng) -> [Tile;9] {
+  let mut terrain_bag = [Road, River, Grass, Grass,
+                         Grass, Grass, Grass, Grass,
+                         Forest, Forest, Town, Town];
+  shuffle(&mut terrain_bag, rng);
   [
-  Tile { contents: [Road, random_terrain(rng), random_terrain(rng), Road, Road]},
-  Tile { contents: [Road, random_terrain(rng), Road, Forest, Road]},
-  Tile { contents: [random_terrain(rng), random_terrain(rng), Road, Road, Road]},
-  Tile { contents: [Forest, Road, random_terrain(rng), Road,  Road]},
+  Tile { contents: [Road, terrain_bag[0], terrain_bag[1], Road, Road]},
+  Tile { contents: [Road, terrain_bag[2], Road, Forest, Road]},
+  Tile { contents: [terrain_bag[3], terrain_bag[4], Road, Road, Road]},
+  Tile { contents: [Forest, Road, terrain_bag[5], Road,  Road]},
   Tile { contents: [Forest, Forest, Forest, Forest, None]},
-  Tile { contents: [random_terrain(rng), Road, Forest, Road,  Road]},
-  Tile { contents: [Road, Road, random_terrain(rng), random_terrain(rng), Road]},
-  Tile { contents: [Road, Forest, Road, random_terrain(rng), Road]},
-  Tile { contents: [random_terrain(rng), Road, Road, random_terrain(rng), Road]},
+  Tile { contents: [terrain_bag[6], Road, Forest, Road,  Road]},
+  Tile { contents: [Road, Road, terrain_bag[7], terrain_bag[8], Road]},
+  Tile { contents: [Road, Forest, Road, terrain_bag[9], Road]},
+  Tile { contents: [terrain_bag[10], Road, Road, terrain_bag[11], Road]},
   ]
 }
 
