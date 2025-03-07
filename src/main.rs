@@ -215,13 +215,45 @@ impl SimulationState {
     }
   }
 
+  pub fn calculate_crowd(&self, target: Position) -> Map<Position,u8> {
+    // calculates a crowd of enemies that fight together
+    // each occupied position is put into the map, along with
+    // how many steps away it is from the fight location
+    let mut result = Map::new();
+    let mut frontier: Vec<Position> = Vec::new();
+    let mut next_frontier: Vec<Position> = Vec::new();
+    let mut distance: u8 = 0;
+    frontier.push(target);
+    while frontier.len() > 0 {
+      while let Some(cursor) = frontier.pop() {
+        if result.contains_key(&cursor) { continue; }
+        if !self.enemies.contains_key(cursor) { continue; }
+        if self.board[cursor] == Tile::default() { continue; }
+        if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = &self.enemies.get(cursor) {
+          if distance > 0 { continue; }
+        }
+        result.insert(cursor, distance);
+        for d in Dir4::list() {
+          let neighbor = cursor + d.into();
+          next_frontier.push(neighbor);
+        }
+      }
+      std::mem::swap(&mut frontier, &mut next_frontier);
+      distance += 1;
+    }
+    result
+  }
+
+
   pub fn set_enemy_alerts(&mut self, alerted: bool)  {
     for d in Dir4::list() {
       let neighbor = self.player_pos + d.into();
       if self.board[neighbor] == Tile::default() {
         continue;
       }
-      if let Some(&nme) = self.enemies.get(neighbor) {
+      let crowd = self.calculate_crowd(neighbor);
+      for &pos in crowd.keys() {
+        let nme = self.enemies[pos];
         let rgr = self.ragdoll_ref(nme.id);
         self.animations.append(move |_| unsafe {
           rgr.get().img = enemy_img(nme.t, alerted);
@@ -229,7 +261,7 @@ impl SimulationState {
         }).reserve([PLAYER_UNIT_ID,nme.id]);
       }
     }
-  }
+}
 
 
   pub fn player_xp_next(&self) -> i64 {
@@ -880,36 +912,7 @@ async fn main() {
             defeated_boss = true;
           }
         }
-        let crowd: Map<Position, u8> = {
-          // calculates the crowd of enemies we're trying to fight
-          // each occupied position is put into the map, along with
-          // how many steps away it is from the fight location
-          let mut result = Map::new();
-          let mut frontier: Vec<Position> = Vec::new();
-          let mut next_frontier: Vec<Position> = Vec::new();
-          let mut distance: u8 = 0;
-          frontier.push(target);
-          while frontier.len() > 0 {
-            while let Some(cursor) = frontier.pop() {
-              if result.contains_key(&cursor) { continue; }
-              if !sim.enemies.contains_key(cursor) { continue; }
-              if sim.board[cursor] == Tile::default() { continue; }
-              if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(cursor) {
-                if !defeated_boss {
-                  continue;
-                }
-              }
-              result.insert(cursor, distance);
-              for d in Dir4::list() {
-                let neighbor = cursor + d.into();
-                next_frontier.push(neighbor);
-              }
-            }
-            std::mem::swap(&mut frontier, &mut next_frontier);
-            distance += 1;
-          }
-          result
-        };
+        let crowd: Map<Position, u8> = sim.calculate_crowd(target);
         if crowd.len() > 0 { // fight!
           let mut speed_mul: f64 = 1.;
           while sim.enemies.contains_key(target) {

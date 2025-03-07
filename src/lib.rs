@@ -236,7 +236,7 @@ impl<V> WrapMap<V> {
     );
   }
 
-  pub fn get(&mut self, k: IVec) -> Option<&V> {
+  pub fn get(&self, k: IVec) -> Option<&V> {
     self.map.get(
       &self.rect.wrap(k)
     )
