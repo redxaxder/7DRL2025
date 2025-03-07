@@ -47,7 +47,7 @@ struct SimulationState {
   // regions that border void
   open_regions: Set<RegionId>,
   // positions bordering void
-  void_frontier: Set<Position>,
+  void_frontier: WrapSet,
 
   enemies: WrapMap<Enemy>,
   num_bosses: usize,
@@ -80,7 +80,7 @@ pub struct Hud {
   pub bosses: usize,
   pub tile_rotation: f32,
   pub tile_transform: D8,
-  pub highlighted_spaces: Set<Position>,
+  pub highlighted_spaces: WrapSet,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -94,7 +94,7 @@ impl Hud {
       bosses: NUM_BOSSES,
       tile_rotation: 0.,
       tile_transform: D8::E,
-      highlighted_spaces: Set::new(),
+      highlighted_spaces: WrapSet::new(BOARD_RECT),
     }
   }
 }
@@ -137,7 +137,7 @@ impl SimulationState {
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
       next_region_id: 1,
       open_regions: Set::new(),
-      void_frontier: Set::new(),
+      void_frontier: WrapSet::new(BOARD_RECT),
       region_sizes: Map::new(),
       region_start: Map::new(),
       rng: from_current_time(),
@@ -209,11 +209,28 @@ impl SimulationState {
     let rdr = self.ragdoll_ref(nme.id);
     if self.board[at] != Tile::default() {
       unsafe {
-        rdr.get().img = enemy_img(nme.t);
+        rdr.get().img = enemy_img(nme.t, false);
         rdr.get().color = MONSTER_COLOR;
       }
     }
   }
+
+  pub fn set_enemy_alerts(&mut self, alerted: bool)  {
+    for d in Dir4::list() {
+      let neighbor = self.player_pos + d.into();
+      if self.board[neighbor] == Tile::default() {
+        continue;
+      }
+      if let Some(&nme) = self.enemies.get(neighbor) {
+        let rgr = self.ragdoll_ref(nme.id);
+        self.animations.append(move |_| unsafe {
+          rgr.get().img = enemy_img(nme.t, alerted);
+          false
+        }).reserve([PLAYER_UNIT_ID,nme.id]);
+      }
+    }
+  }
+
 
   pub fn player_xp_next(&self) -> i64 {
     self.player_level * 3
@@ -286,10 +303,9 @@ impl SimulationState {
       }
 
       // update void frontier
-      let wp = self.board.rect.wrap(position);
-      self.void_frontier.remove(&wp);
+      self.void_frontier.remove(position);
       for d in Dir4::list() {
-        let n = self.board.rect.wrap(wp + d.into());
+        let n = position + d.into();
         if self.board[n] == Tile::default() {
           self.void_frontier.insert(n);
         }
@@ -297,7 +313,7 @@ impl SimulationState {
 
       // rebuild open regions
       self.open_regions.clear();
-      for &void_cell in &self.void_frontier {
+      for &void_cell in self.void_frontier.iter() {
         for d in Dir4::list() {
           let cell = void_cell + d.into();
           let regionid = self.regions[cell][d.opposite().index()];
@@ -494,7 +510,7 @@ impl SimulationState {
           self.animations.append(move |_time| {
             unsafe {
               let ragdoll = rgr.get();
-              ragdoll.img = enemy_img(nme.t);
+              ragdoll.img = enemy_img(nme.t, false);
               ragdoll.color = MONSTER_COLOR;
             }
             false
@@ -983,6 +999,9 @@ async fn main() {
             && t1 == Terrain::River
         };
 
+
+        // clear monster alerts
+        sim.set_enemy_alerts(false);
         sim.move_player(target);
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
@@ -1040,7 +1059,7 @@ async fn main() {
                 sim.launch_particle(from, to, TILE, SKYBLUE, 0.5, 0.1).chain();
                 sim.add_tiles(1).chain();
                 sim.defer_set_hud(move |hud| {
-                  hud.highlighted_spaces.remove(&p);
+                  hud.highlighted_spaces.remove(p);
                 }).chain();
 
 
@@ -1118,10 +1137,10 @@ async fn main() {
         spawns.clear();
         sim.update_nearest_dmap();
         //do monster turn
-        for (pos, _) in sim.enemies.clone().iter() {
-          let maybe_pos = enemy_pathfind(&mut sim, *pos);
+        for (&pos, &_nme) in sim.enemies.clone().iter() {
+          let maybe_pos = enemy_pathfind(&mut sim, pos);
           if let Some(new_pos) = maybe_pos {
-            sim.move_enemy(*pos, new_pos, acceleration);
+            sim.move_enemy(pos, new_pos, acceleration);
           }
           //debug!("a monster turn happened at {:?}", pos)
         }
@@ -1148,6 +1167,9 @@ async fn main() {
         sim.add_monster_turns(-1).chain();
         acceleration += 0.5;
       }
+
+      sim.set_enemy_alerts(true);
+
     }
 
     sim.tick_animations();
@@ -1192,7 +1214,7 @@ async fn main() {
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
         let r = display.pos_rect(p.into());
-        if sim.hud.highlighted_spaces.contains(&p) {
+        if sim.hud.highlighted_spaces.contains(p) {
           display.draw_img(r, SKYBLUE, &BOX);
         }
       }
@@ -1214,9 +1236,7 @@ async fn main() {
       // tile placement hints
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
-        if !sim.void_frontier.contains(&sim.board.rect.wrap(p)) {
-          continue;
-        }
+        if !sim.void_frontier.contains(p) { continue; }
         let compat = sim.tile_compatibility(p, sim.player_current_tile());
         if compat == 0 { continue; }
         let mut color = DARKGRAY;
@@ -1321,7 +1341,7 @@ async fn main() {
             sim.layout.insert(HudItem::Arrows, rect);
             for d in Dir4::list() {
               let target = sim.player_pos + d.into();
-              if sim.void_frontier.contains(&BOARD_RECT.wrap(target)) {
+              if sim.void_frontier.contains(target) {
                 let compat = sim.tile_compatibility(target, sim.player_current_tile());
                 // tile doesnt fit
                 if compat == 0 { continue; }

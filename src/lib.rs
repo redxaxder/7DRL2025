@@ -247,7 +247,7 @@ impl<V> WrapMap<V> {
       &self.rect.wrap(k)
     )
   }
-  pub fn contains_key(&mut self, k: IVec) -> bool {
+  pub fn contains_key(&self, k: IVec) -> bool {
     self.map.contains_key(
       &self.rect.wrap(k)
     )
@@ -273,6 +273,45 @@ impl<V> WrapMap<V> {
   }
 
 }
+
+#[derive(Clone, Debug)]
+pub struct WrapSet {
+  rect: IRect,
+  set: Set<Position>
+}
+impl WrapSet {
+  pub fn new(rect: IRect) -> Self {
+    Self { rect, set: Set::new() }
+  }
+
+  pub fn len(&self) -> usize {
+    self.set.len()
+  }
+
+  pub fn insert(&mut self, k: IVec) {
+    self.set.insert(self.rect.wrap(k));
+  }
+
+  pub fn remove(&mut self, k: IVec) -> bool {
+    self.set.remove(
+      &self.rect.wrap(k)
+    )
+  }
+  pub fn contains(&self, k: IVec) -> bool {
+    self.set.contains(
+      &self.rect.wrap(k)
+    )
+  }
+
+  pub fn iter(&self) -> set::Iter<IVec> {
+    self.set.iter()
+  }
+
+  pub fn clear(&mut self) {
+    self.set.clear()
+  }
+}
+
 
 impl<V> std::ops::Index<IVec> for WrapMap<V> {
   type Output = V;
@@ -331,7 +370,7 @@ pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
   let mut er = r.clone();
   er.scale(0.5, 0.5);
   er = er.offset(Vec2{ x: r.w/3., y: r.h * 0.3 });
-  display.draw_img(er, BLACK, &enemy_img(quest.target));
+  display.draw_img(er, BLACK, &enemy_img(quest.target, false));
   let quest_text = format!("{}", quest.quota);
   let font_size = 50;
   let font_scale = 1.;

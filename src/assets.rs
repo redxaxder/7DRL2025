@@ -57,14 +57,21 @@ pub const fn arrow_img(d: Dir4) -> Img {
   Img{path, rect}
 }
 
-pub const fn enemy_img(nme: EnemyType) -> Img {
+pub const fn enemy_img(nme: EnemyType, alarmed: bool) -> Img {
   let path = match nme {
     EnemyType::Clyde  => "nme1.png",
     EnemyType::Blinky   => "nme2.png",
     EnemyType::Pinky => "nme3.png",
     EnemyType::GhostWitch  => "boss.png",
   };
-  def(path)
+
+  let rect = Rect {
+    x: if alarmed {128.} else {0.},
+    y: 0.,
+    w: 128.,
+    h: 128.,
+  };
+  Img{path, rect}
 }
 
 pub const fn prize_img(prize: Prize) -> Img {
