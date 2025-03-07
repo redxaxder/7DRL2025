@@ -379,5 +379,5 @@ pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
   let margin = 0.;
   let text_x = er.x + textdim.width * 0.8 - margin;
   let text_y = er.y + textdim.height * 0.2;
-  draw_text(&quest_text, text_x, text_y, font_size.into(), MONSTER_COLOR);
+  draw_text(&quest_text, text_x, text_y, font_size.into(), BLACK);
 }
