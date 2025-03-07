@@ -25,6 +25,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "scroll.png",
   "blocked.png",
   "river16.png",
+  "arrows.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -43,6 +44,18 @@ pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 pub const SCROLL: Img = def("scroll.png");
 pub const BLOCKED: Img = def("blocked.png");
 pub const HEART: Img = def("heart.png");
+
+
+pub const fn arrow_img(d: Dir4) -> Img {
+  let path = "arrows.png";
+  let rect = Rect {
+    x: (d.index() as u8 as f32) * 128.,
+    y: 0.,
+    w: 128.,
+    h: 128.,
+  };
+  Img{path, rect}
+}
 
 pub const fn enemy_img(nme: EnemyType) -> Img {
   let path = match nme {

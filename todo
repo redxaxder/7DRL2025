@@ -10,11 +10,11 @@
   - [x] to discard (if discard is forced)
   - [z] to level (if level available)
     - blinks when active
-- slow down the animations
-- indicate legal movement directions
 
 
 
++ slow down the animations
++ indicate legal movement directions
 + highlight perfect tile during tile reward
 + healing particle for level-up
 + animate tile rotation

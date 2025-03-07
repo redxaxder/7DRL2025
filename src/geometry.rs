@@ -206,7 +206,7 @@ impl Dir4 {
   }
 
   #[inline]
-  pub fn index(self) -> usize {
+  pub const fn index(self) -> usize {
     (self as usize) >> 1
   }
 

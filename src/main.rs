@@ -104,7 +104,7 @@ impl Hud {
 #[repr(u8)]
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum HudItem{
-  Hp, Xp, Tile, SpeedPenalty, Bar
+  Hp, Xp, Tile, SpeedPenalty, Bar, Arrows,
 }
 
 pub struct Ragdoll {
@@ -1211,36 +1211,6 @@ async fn main() {
 
 
 
-      //for offset in DRAW_BOUNDS.iter() { // blocked tile hints
-      //  let p = sim.player_pos + offset;
-      //  let mut blocked = false;
-      //  let mut blocked_color = BLACK;
-      //  // if the target is in the frontier
-      //  // and the current tile cant fit there (in current orientation), it is blocked
-      //
-      //
-      //  if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
-      //    blocked_color = GRAY;
-      //    if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
-      //      blocked = true;
-      //    }
-      //  }
-      //
-      //  if let Ok(d) = Dir4::try_from(offset) {
-      //    // we're locked in combat, and this is not a road direction
-      //    if sim.in_combat() && !sim.is_road_dir(d) {
-      //      // we can't step on void
-      //      blocked = blocked || sim.board[p] == Tile::default();
-      //      // we can't step on a free space
-      //      blocked = blocked || !sim.enemies.contains_key(p);
-      //    }
-      //  }
-      //
-      //  if blocked {
-      //    display.draw_grid( p.into(), blocked_color, &BLOCKED);
-      //  }
-      //}
-
       // tile placement hints
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
@@ -1340,21 +1310,55 @@ async fn main() {
             draw_text(&remaining_tiles, x, y, font_size as f32, WHITE);
           }
 
+          { // movement arrows
+            let bar = sim.layout[&HudItem::Bar];
+            let rect = Rect {
+              x: bar.x + margin,
+              y: bar.y + margin,
+              w: sz.x,
+              h: sz.y,
+            };
+            sim.layout.insert(HudItem::Arrows, rect);
+            for d in Dir4::list() {
+              let target = sim.player_pos + d.into();
+              if sim.void_frontier.contains(&BOARD_RECT.wrap(target)) {
+                let compat = sim.tile_compatibility(target, sim.player_current_tile());
+                // tile doesnt fit
+                if compat == 0 { continue; }
+                // no tiles left
+                if sim.player_tiles < 1 { continue; }
+              }
+              if sim.in_combat() && !sim.is_road_dir(d) {
+                // we can't step on void
+                if sim.board[target] == Tile::default() { continue; }
+                // we can't step on a free space
+                if !sim.enemies.contains_key(target) { continue; }
+              }
+              display.draw_img(
+                rect,
+                WHITE,
+                &arrow_img(d),
+              )
+            }
+          }
+
           { // Current/Max HP and XP
             let bar = sim.layout[&HudItem::Bar];
+            let arrows = sim.layout[&HudItem::Arrows];
             let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
             let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
             let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
             let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
             let leftover = bar.h - hpdim.height - xpdim.height;
+            let x = margin + arrows.x + arrows.w;
             let hpr = Rect {
-              x: margin,
+              x,
               w: hpdim.width,
               h: hpdim.height,
               y: bar.y + (0.33 * leftover),
             };
             let xpr = Rect {
-              x: margin,
+              x,
               w: xpdim.width,
               h: xpdim.height,
               y: bar.y + (0.66 * leftover) + hpr.h,
