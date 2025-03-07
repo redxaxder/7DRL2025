@@ -911,8 +911,7 @@ async fn main() {
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
           let mut speed_mul: f64 = 1.;
           let mut delay = 0.;
-          while sim.num_bosses > 0 {
-          //for _ in 0..NUM_BOSSES-1 {
+          while sim.num_bosses > 1 {
             let id = sim.enemies.get(target).unwrap().id;
             delay += BASE_ANIMATION_DURATION/speed_mul;
             sim.animations.append_empty(delay).reserve(id);
@@ -1269,7 +1268,7 @@ async fn main() {
         // rotation hints
         let mut g = D8::E;
         for _ in 0..4 {
-          let rt = g * sim.player_current_tile();
+          let rt = g * sim.player_next_tile;
           let compat = sim.tile_compatibility(p, rt);
           if debug_draw {
             debug!("pos {:?} compat {} @ {:?}", p, compat, g);
@@ -1355,16 +1354,11 @@ async fn main() {
               sim.hud.tile_transform * sim.player_next_tile,
               sim.hud.tile_rotation as f32
               );
-            let hr = Rect {
-              x: r.x - 1.5 * margin,
-              y: r.y - 1.5 * margin,
-              w: sz.x,
-              h: sz.y,
-            };
-            display.draw_img(
-              hr,
+            display.draw_img_r(
+              r,
               WHITE,
-              &HINT
+              &HINT,
+              (sim.hud.tile_transform * Dir4::Right).radians() + sim.hud.tile_rotation,
             );
             if let Some(q) = sim.next_quest {
               draw_quest(&display, &r, &q);
