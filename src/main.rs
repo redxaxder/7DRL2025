@@ -74,6 +74,7 @@ pub struct Hud {
   pub xp: i64,
   pub hp: i64,
   pub hp_color: Color,
+  pub hint_color: Color,
   pub tiles: i64,
   pub turns: i64,
   pub defeat: bool,
@@ -88,6 +89,7 @@ impl Hud {
       xp: 0,
       hp: STARTING_HP,
       hp_color: WHITE,
+      hint_color: YELLOW,
       tiles: STARTING_TILES,
       turns: 0,
       defeat: false,
@@ -104,7 +106,7 @@ impl Hud {
 #[repr(u8)]
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum HudItem{
-  Hp, Xp, Tile, SpeedPenalty, Bar, Arrows,
+  Hp, Xp, Tile, SpeedPenalty, Bar, Arrows, DiscardHint, LevelHint
 }
 
 pub struct Ragdoll {
@@ -442,7 +444,8 @@ impl SimulationState {
     self.player_tile_transform * self.player_next_tile
   }
 
-  pub fn next_tile(&mut self) {
+  // returns whether the next tile has any placeable spots
+  pub fn next_tile(&mut self) -> bool {
     self.player_next_tile = tiles::generate(&mut self.rng);
     self.defer_set_hud(|hud| hud.tile_rotation = 0.)
       .reserve(PLAYER_UNIT_ID);
@@ -456,6 +459,13 @@ impl SimulationState {
         self.next_quest = Some(quest);
       }
     }
+
+    for p in self.void_frontier.iter() {
+      if self.tile_compatibility(*p, self.player_next_tile) > 0 {
+        return true;
+      }
+    }
+    false
   }
 
   pub fn update_player_dmap(&mut self) {
@@ -885,6 +895,7 @@ async fn main() {
     let mut player_moved: bool = false;
     let mut needs_road = false;
     let mut can_move = true;
+    let mut tile_compat: bool = true;
 
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
@@ -1025,7 +1036,7 @@ async fn main() {
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(sim.player_pos, sim.player_current_tile());
-          sim.next_tile();
+          tile_compat = sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
           if let Some(nme) = sim.enemies.remove(sim.player_pos) {
@@ -1417,6 +1428,36 @@ async fn main() {
               draw_text(&text,x,y, font_size.into(), WHITE);
             }
             sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
+          }
+
+          if !tile_compat { // discard hint
+            let bar = sim.layout[&HudItem::Bar];
+            let tile = sim.layout[&HudItem::Tile];
+            let hint = "[X] to discard";
+            let hint_dim: TextDimensions = measure_text(hint, None, font_size, font_scale);
+            let hint_rect = Rect {
+              x: tile.x + tile.w - hint_dim.width,
+              y: bar.y - hint_dim.height - margin,
+              h: hint_dim.height,
+              w: hint_dim.width,
+            };
+            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.hud.hint_color);
+            sim.layout.insert(HudItem::DiscardHint, hint_rect);
+          }
+
+          // level up hint
+          if sim.player_xp >= sim.player_xp_next() {
+            let xp = sim.layout[&HudItem::Xp];
+            let hint = "[Z]";
+            let hint_dim: TextDimensions = measure_text(hint, None, font_size, font_scale);
+            let hint_rect = Rect {
+              x: xp.x + xp.w + margin,
+              y: xp.y + hint_dim.offset_y,
+              h: hint_dim.height,
+              w: hint_dim.width,
+            };
+            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.hud.hint_color);
+            sim.layout.insert(HudItem::LevelHint, hint_rect);
           }
         }
       }

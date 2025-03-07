@@ -17,8 +17,12 @@ Gameplay Basics:
 
 Place tiles from your hand while dealing with monsters and fulfilling
 quests. Moving onto a blank space will place the tile currently in your
-hand. You can rotate that tile before you place it. Spaces that you can't play
-in are marked with an X. Monsters take a turn when you place a tile.
+hand. You can rotate that tile before you place it. Spaces you can play on are
+marked with a square. Monsters take a turn when you place a tile.
+
+Once you have enough XP, you may press a button to level up. Leveling up gives
+you a full heal. If you don't like your current tile, you may press a button to
+discard it. Be careful, though, your tile supply is not infinite.
 
 Monsters:
 
@@ -45,10 +49,10 @@ monster. Completing a quest will give you bonuses.
 | Town    | Monsters cannot enter a town through its walls, but they can come |
 |         | in through undefended parts.                                      |
 |         |                                                                   |
-| Grass   | It's just grass.                                                  |
-|         |                                                                   |
 | Road    | You can avoid fighting monsters by moving along a road.           |
 |         |                                                                   |
 | River   | Rivers slow you down. Monsters will take an extra turn for each   |
 |         | river movement you do.                                            |
+|         |                                                                   |
+| Grass   | It's just grass.                                                  |
 

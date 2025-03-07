@@ -112,7 +112,7 @@ v0.3 "qol"
    - hover shows movement path
    - movement path is displayed differently if passing through forced combat
  - tile hints
-   - shows where on the screen the current tile can be played
+   + shows where on the screen the current tile can be played
    - put a tick mark in the top left corner of the tile in hand
    - on playable positions put tick mark in the corner of the spot based on rotation
    - color the tick mark based on whether the tile is a full or partial match
