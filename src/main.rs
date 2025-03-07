@@ -11,7 +11,7 @@ const REGION_REWARD_THRESHOLD: usize = 4;
 const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
 
-const STARTING_HP: i64 = 5;
+const STARTING_HP: i64 = 6;
 const STARTING_TILES: i64 = 60;
 
 const DEBUG_IMMORTAL: bool = false;
