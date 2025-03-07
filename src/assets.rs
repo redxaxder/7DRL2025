@@ -17,6 +17,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "xp.png",
   "time.png",
   "tile.png",
+  "box.png",
   "boss.png",
   "heart.png",
   "road16.png",
@@ -35,6 +36,7 @@ pub const fn def(path: &'static str) -> Img {
 pub const XP: Img = def("xp.png");
 pub const TIME: Img = def("time.png");
 pub const TILE: Img = def("tile.png");
+pub const BOX: Img = def("box.png");
 pub const HERO: Img = def("hero.png");
 pub const QUEST: Img = def("npc.png");
 pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");

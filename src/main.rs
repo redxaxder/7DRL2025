@@ -76,6 +76,7 @@ pub struct Hud {
   pub bosses: usize,
   pub tile_rotation: f32,
   pub tile_transform: D8,
+  pub highlighted_spaces: Set<Position>,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -89,6 +90,7 @@ impl Hud {
       bosses: NUM_BOSSES,
       tile_rotation: 0.,
       tile_transform: D8::E,
+      highlighted_spaces: Set::new(),
     }
   }
 }
@@ -1020,8 +1022,17 @@ async fn main() {
                 let from = display.pos_rect(p.into()).center();
                 let to = sim.layout[&HudItem::Tile].center();
                 sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+
+                sim.defer_set_hud(move |hud| {
+                  hud.highlighted_spaces.insert(p);
+                });
+                sim.launch_particle(from, to, TILE, SKYBLUE, 0.5, 0.1).chain();
                 sim.add_tiles(1).chain();
+                sim.defer_set_hud(move |hud| {
+                  hud.highlighted_spaces.remove(&p);
+                }).chain();
+
+
                 debug!("perfect tile bonus");
               }
             }
@@ -1166,6 +1177,14 @@ async fn main() {
           display.draw_tile_1(r, tile, terrain, 0.);
         }
       }
+      // draw terrain highlights
+      for offset in DRAW_BOUNDS.iter() {
+        let p = sim.player_pos + offset;
+        let r = display.pos_rect(p.into());
+        if sim.hud.highlighted_spaces.contains(&p) {
+          display.draw_img(r, SKYBLUE, &BOX);
+        }
+      }
       for offset in DRAW_BOUNDS.iter() { // draw quests and prized
         let p = sim.player_pos + offset;
         let r = display.pos_rect(p.into());
@@ -1179,34 +1198,51 @@ async fn main() {
         }
       }
 
-      for offset in DRAW_BOUNDS.iter() { // blocked tile hints
+
+
+      //for offset in DRAW_BOUNDS.iter() { // blocked tile hints
+      //  let p = sim.player_pos + offset;
+      //  let mut blocked = false;
+      //  let mut blocked_color = BLACK;
+      //  // if the target is in the frontier
+      //  // and the current tile cant fit there (in current orientation), it is blocked
+      //
+      //
+      //  if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
+      //    blocked_color = GRAY;
+      //    if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
+      //      blocked = true;
+      //    }
+      //  }
+      //
+      //  if let Ok(d) = Dir4::try_from(offset) {
+      //    // we're locked in combat, and this is not a road direction
+      //    if sim.in_combat() && !sim.is_road_dir(d) {
+      //      // we can't step on void
+      //      blocked = blocked || sim.board[p] == Tile::default();
+      //      // we can't step on a free space
+      //      blocked = blocked || !sim.enemies.contains_key(p);
+      //    }
+      //  }
+      //
+      //  if blocked {
+      //    display.draw_grid( p.into(), blocked_color, &BLOCKED);
+      //  }
+      //}
+
+      // tile placement hints
+      for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
-        let mut blocked = false;
-        let mut blocked_color = BLACK;
-        // if the target is in the frontier
-        // and the current tile cant fit there (in current orientation), it is blocked
-
-
-        if sim.void_frontier.contains(&BOARD_RECT.wrap(p)) {
-          blocked_color = GRAY;
-          if sim.tile_compatibility(p, sim.player_current_tile()) == 0  || sim.player_tiles < 1 {
-            blocked = true;
-          }
+        if !sim.void_frontier.contains(&sim.board.rect.wrap(p)) {
+          continue;
         }
-
-        if let Ok(d) = Dir4::try_from(offset) {
-          // we're locked in combat, and this is not a road direction
-          if sim.in_combat() && !sim.is_road_dir(d) {
-            // we can't step on void
-            blocked = blocked || sim.board[p] == Tile::default();
-            // we can't step on a free space
-            blocked = blocked || !sim.enemies.contains_key(p);
-          }
+        let compat = sim.tile_compatibility(p, sim.player_current_tile());
+        if compat == 0 { continue; }
+        let mut color = DARKGRAY;
+        if compat > 1 {
+          color = SKYBLUE;
         }
-
-        if blocked {
-          display.draw_grid( p.into(), blocked_color, &BLOCKED);
-        }
+        display.draw_grid( p.into(), color, &BOX);
       }
 
       // draw enemies
