@@ -1447,7 +1447,7 @@ async fn main() {
           }
 
           // level up hint
-          if sim.player_xp >= sim.player_xp_next() {
+          if sim.hud.xp >= sim.player_xp_next() && !sim.player_dead() {
             let xp = sim.layout[&HudItem::Xp];
             let hint = "[Z]";
             let hint_dim: TextDimensions = measure_text(hint, None, font_size, font_scale);
