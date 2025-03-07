@@ -418,7 +418,11 @@ impl SimulationState {
       }
       if !river_reward { return; }
     }
-    let xp_reward = size.saturating_sub(REGION_REWARD_THRESHOLD);
+    let xp_reward = if terrain == Terrain::Town {
+      size
+    } else {
+      size.saturating_sub(REGION_REWARD_THRESHOLD)
+    };
     if xp_reward > 0 {
       let from = display.pos_rect(self.player_pos.into()).center();
       {
@@ -1599,8 +1603,6 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
   let mut candidates: Vec<IVec> = Vec::new();
   for &d in &valid {
     let target = pos + IVec::from(d);
-    // skip town edges
-    if town.contains(&d) { continue; }
     // dont step on me
     if equivalent(target, sim.player_pos) { continue; }
     // no void
