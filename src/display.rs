@@ -124,6 +124,14 @@ impl Display {
     self.draw_img(self.pos_rect(position), color, image);
   }
 
+  pub fn draw_grid_r(&self,
+                       position: Vec2,
+                       color: Color,
+                       image: &Img,
+                       rot: f32) {
+    self.draw_img_r(self.pos_rect(position), color, image, rot);
+  }
+
 
   pub fn draw_tile(&self, rect: Rect, tile: Tile, rotation: f32) {
     draw_rectangle_ex(

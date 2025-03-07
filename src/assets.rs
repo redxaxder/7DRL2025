@@ -26,6 +26,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "blocked.png",
   "river16.png",
   "arrows.png",
+  "rothint.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -44,6 +45,7 @@ pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 pub const SCROLL: Img = def("scroll.png");
 pub const BLOCKED: Img = def("blocked.png");
 pub const HEART: Img = def("heart.png");
+pub const HINT: Img = def("rothint.png");
 
 
 pub const fn arrow_img(d: Dir4) -> Img {

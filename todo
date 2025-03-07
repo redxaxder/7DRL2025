@@ -1,9 +1,9 @@
 - animate tile placement
 + instructions
 + level-up reminder
-- placement hints
++ placement hints
   + tile compatibility
-  - rotation hints
+  + rotation hints
 + monster alert state
 + control hints in hud at relevant times
   + [x] to discard (if discard is forced)

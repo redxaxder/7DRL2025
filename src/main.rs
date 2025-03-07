@@ -844,6 +844,7 @@ async fn main() {
   let mut display = Display::new(resources, display_dim);
 
   let mut victory = false;
+  let mut debug_draw = false;
 
   loop {
     if get_keys_pressed().len() > 0 {
@@ -1246,20 +1247,42 @@ async fn main() {
         }
       }
 
-
-
+      if debug_draw {
+        debug!("----------------");
+      }
       // tile placement hints
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
         if !sim.void_frontier.contains(p) { continue; }
-        let compat = sim.tile_compatibility(p, sim.player_current_tile());
-        if compat == 0 { continue; }
-        let mut color = DARKGRAY;
-        if compat > 1 {
-          color = SKYBLUE;
+        {
+          let compat = sim.tile_compatibility(p, sim.player_current_tile());
+          if compat == 1 {
+            display.draw_grid( p.into(), DARKGRAY, &BOX);
+          } else if compat == 2 {
+            display.draw_grid( p.into(), SKYBLUE, &BOX);
+          }
         }
-        display.draw_grid( p.into(), color, &BOX);
+        
+        // rotation hints
+        let mut g = D8::E;
+        for _ in 0..4 {
+          let rt = g * sim.player_current_tile();
+          let compat = sim.tile_compatibility(p, rt);
+          if debug_draw {
+            debug!("pos {:?} compat {} @ {:?}", p, compat, g);
+          }
+          if compat > 0 {
+            let color = if compat == 1 { DARKGRAY } else { SKYBLUE };
+            let r = (g * Dir4::Right).radians();
+            display.draw_grid_r(p.into(), color, &HINT, r);
+          }
+          g = g * D8::R1;
+        }
       }
+      if debug_draw {
+        debug!("----------------");
+      }
+      debug_draw = false;
 
       // draw enemies
       for ragdoll in sim.ragdolls.values() {
@@ -1329,6 +1352,17 @@ async fn main() {
               sim.hud.tile_transform * sim.player_next_tile,
               sim.hud.tile_rotation as f32
               );
+            let hr = Rect {
+              x: r.x - 1.5 * margin,
+              y: r.y - 1.5 * margin,
+              w: sz.x,
+              h: sz.y,
+            };
+            display.draw_img(
+              hr,
+              WHITE,
+              &HINT
+            );
             if let Some(q) = sim.next_quest {
               draw_quest(&display, &r, &q);
             }
