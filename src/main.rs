@@ -260,7 +260,7 @@ impl SimulationState {
         self.animations.append(move |_| unsafe {
           rgr.get().img = enemy_img(nme.t, alerted);
           false
-        }).reserve([PLAYER_UNIT_ID,nme.id]);
+        }).reserve(nme.id);
       }
     }
 }
@@ -916,6 +916,7 @@ async fn main() {
             sim.num_bosses -= 1;
             sim.defer_set_hud(|hud| hud.bosses -= 1).reserve(id);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
+            sim.set_enemy_alerts(true);
             speed_mul += 0.5;
             if sim.player_dead() { break; }
           }
@@ -925,6 +926,7 @@ async fn main() {
         }
         let crowd: Map<Position, u8> = sim.calculate_crowd(target);
         if crowd.len() > 0 { // fight!
+          player_moved = true;
           let mut speed_mul: f64 = 1.;
           while sim.enemies.contains_key(target) {
             if sim.player_dead() { break; }
@@ -949,7 +951,6 @@ async fn main() {
               }
               break;
             }
-            player_moved = true;
           }
           victory = defeated_boss && !sim.player_dead();
         } else { // nobody in this spot to fight
