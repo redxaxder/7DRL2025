@@ -22,7 +22,6 @@ const BASE_ANIMATION_DURATION: f64 = 0.5;
 
 
 //const MONSTER_COLOR: Color = PURPLE;
-const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
 
 struct SimulationState {
   player_pos: Position,
@@ -1714,7 +1713,7 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
     let nme_types: Vec<&EnemyType> = nme_counts.keys().collect();
     let selected_type = nme_types[rng.next_u32() as usize % nme_types.len()];
     let mut quest = Quest::new();
-    let quota = nme_counts.get(selected_type).unwrap();
+    let quota = nme_counts.get(selected_type).unwrap().max(&3);
     quest.target = *selected_type;
     quest.quota = *quota;
     Some(quest)

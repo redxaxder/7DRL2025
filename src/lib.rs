@@ -6,6 +6,7 @@ pub type DMap = Buffer2D<i16>;
 pub const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
 pub const PLAYER_UNIT_ID: UnitId = 0;
 
+pub const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
 
 pub const INVISIBLE: Color = Color{r:0.,g:0.,b:0.,a:0.};
 
@@ -367,9 +368,9 @@ pub fn subtile_neighbors(st: (Position, Dir4)) -> [(Position, Dir4);4] {
 
 pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
   display.draw_img(*r, BEIGE, &SCROLL);
-  let mut er = r.clone();
+  let mut er: Rect = r.clone();
   er.scale(0.5, 0.5);
-  er = er.offset(Vec2{ x: r.w/3., y: r.h * 0.3 });
+  er = er.offset(Vec2{ x: r.w/4., y: r.h /4. });
   display.draw_img(er, BLACK, &enemy_img(quest.target, false));
   let quest_text = format!("{}", quest.quota);
   let font_size = 50;
@@ -378,5 +379,5 @@ pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
   let margin = 0.;
   let text_x = er.x + textdim.width * 0.8 - margin;
   let text_y = er.y + textdim.height * 0.2;
-  draw_text(&quest_text, text_x, text_y, font_size.into(), BLACK);
+  draw_text(&quest_text, text_x, text_y, font_size.into(), MONSTER_COLOR);
 }
