@@ -1591,8 +1591,6 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     valid = Dir4::list().into();
   }
 
-  let town: Vec<Dir4> = town_edges(&pos, &sim.board);
-
   let mut candidates: Vec<IVec> = Vec::new();
   for &d in &valid {
     let target = pos + IVec::from(d);
@@ -1648,23 +1646,6 @@ pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
     let edge1 = tile.contents[ix];
     let edge2 = neighbor.contents[dir.opposite().index()];
     if edge1 == Terrain::Forest && edge2 == Terrain::Forest {
-      candidates.push(dir);
-    }
-  }
-  candidates
-}
-
-pub fn town_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
-  //this is slightly different from forest_edges because the town edge
-  //logic for monsters is one-way
-
-  // right up left down (matching dir4.index)
-  let mut candidates: Vec<Dir4> = Vec::new();
-  let tile: Tile = board[*pos];
-  for ix in 0..4 {
-    let dir: Dir4 = Dir4::list()[ix];
-    let edge = tile.contents[ix];
-    if edge == Terrain::Town {
       candidates.push(dir);
     }
   }
