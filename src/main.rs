@@ -93,6 +93,7 @@ pub struct Hud {
   pub tile_transform: D8,
   pub highlighted_spaces: WrapSet,
   pub hidden_spaces: WrapSet,
+  pub desire_path: Vec<Position>,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -109,6 +110,7 @@ impl Hud {
       tile_transform: D8::E,
       highlighted_spaces: WrapSet::new(BOARD_RECT),
       hidden_spaces: WrapSet::new(BOARD_RECT),
+      desire_path: Vec::new(),
     }
   }
 }
@@ -191,8 +193,11 @@ impl SimulationState {
     sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
     sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
     sim.spawn_enemy(EnemyType::GhostWitch, BOSS_LOCATION);
-    sim.move_player(sim.player_pos);
+    sim.ragdoll_ref(PLAYER_UNIT_ID);
     sim.next_tile();
+
+    sim.hud.desire_path.push(sim.player_pos);
+
 
     sim
   }
@@ -410,7 +415,7 @@ impl SimulationState {
     }
   }
 
-  pub fn reward_completed_region(&mut self, rid: RegionId, display: &Display) {
+  pub fn reward_completed_region(&mut self, rid: RegionId) {
     let (position, dir) = self.region_start[&rid];
     let terrain = self.board[position].contents[dir.index()];
     let size = self.region_sizes[&rid];
@@ -607,7 +612,7 @@ impl SimulationState {
     wrap_rect(r, p)
   }
 
-  pub fn slay_enemy(&mut self, at: Position, dir: Dir4, display: &Display) {
+  pub fn slay_enemy(&mut self, at: Position, dir: Dir4) {
     let Some(nme) = self.enemies.remove(at) else { return; };
     // credit quests
     for (_, quest) in self.quests.iter_mut() {
@@ -860,9 +865,14 @@ impl SimulationState {
   pub fn move_player(&mut self, to: Position) {
     let from = self.player_pos;
     self.player_pos = to;
+    self.hud.desire_path.push(to);
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), BASE_ANIMATION_DURATION.into())
       .reserve([from,to])
       .reserve(PLAYER_UNIT_ID);
+    self.defer_set_hud(|hud|{
+      hud.desire_path.remove(0);
+    }).chain();
+
   }
 
   // 2- perfect match
@@ -993,7 +1003,7 @@ async fn main() {
             let id = sim.enemies.get(target).unwrap().id;
             delay += BASE_ANIMATION_DURATION/speed_mul;
             sim.animations.append_empty(delay).reserve(id);
-            sim.slay_enemy(target, playermove, &display);
+            sim.slay_enemy(target, playermove);
             sim.num_bosses -= 1;
             sim.defer_set_hud(|hud| hud.bosses -= 1).reserve(id);
             sim.spawn_enemy(EnemyType::GhostWitch, target);
@@ -1012,7 +1022,7 @@ async fn main() {
           while sim.enemies.contains_key(target) {
             if sim.player_dead() { break; }
             speed_mul += 0.5;
-            sim.slay_enemy(target, playermove, &display);
+            sim.slay_enemy(target, playermove);
             // enemies behind move up
             let mut vacated = target;
             let mut dist = 0;
@@ -1138,7 +1148,7 @@ async fn main() {
             }
           }
           for &regionid in just_completed.iter() {
-            sim.reward_completed_region(regionid, &display);
+            sim.reward_completed_region(regionid);
           }
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
@@ -1324,7 +1334,7 @@ async fn main() {
           display.draw_img(r, SKYBLUE, &BOX);
         }
       }
-      for offset in DRAW_BOUNDS.iter() { // draw quests and prized
+      for offset in DRAW_BOUNDS.iter() { // draw quests and prizes
         let p = sim.player_pos + offset;
         let r = display.pos_rect(p.into());
         if sim.quests.contains_key(p) {
@@ -1381,6 +1391,32 @@ async fn main() {
           ragdoll.color,
           &ragdoll.img
         );
+      }
+
+      // draw player path
+      {
+        let n = sim.hud.desire_path.len();
+        if n > 1 {
+          for i in 1..n {
+            let prev = sim.hud.desire_path[i-1];
+            let here = sim.hud.desire_path[i];
+            let Ok(dir) = Dir4::try_from(here - prev) else { continue };
+            let is_end = i == (n-1);
+            let r = display.pos_rect(here.into());
+            display.draw_img(r,
+              YELLOW,
+              &path_img(dir, is_end)
+            );
+            if is_end { continue; }
+            let next = sim.hud.desire_path[i+1];
+            let Ok(nextdir) = Dir4::try_from(here - next) else { continue };
+            display.draw_img(r,
+              YELLOW,
+              &path_img(nextdir, is_end)
+            );
+
+          }
+        }
       }
 
       // draw boss count

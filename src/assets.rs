@@ -27,6 +27,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "river16.png",
   "arrows.png",
   "rothint.png",
+  "path.png",
 ];
 
 pub const fn def(path: &'static str) -> Img {
@@ -46,6 +47,15 @@ pub const SCROLL: Img = def("scroll.png");
 pub const BLOCKED: Img = def("blocked.png");
 pub const HEART: Img = def("heart.png");
 pub const HINT: Img = def("rothint.png");
+
+
+pub const fn path_img(dir: Dir4, arrow: bool) -> Img {
+  let path = "path.png";
+  let x = 128. * (dir.index() as f32);
+  let y = if arrow {0.} else { 128.};
+  let rect = Rect{x, y, w: 128., h: 128. };
+  Img{ path, rect }
+}
 
 
 pub const fn arrow_img(d: Dir4) -> Img {
