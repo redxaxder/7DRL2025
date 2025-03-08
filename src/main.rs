@@ -69,7 +69,9 @@ struct SimulationState {
   animations: AnimationQueue,
   ragdolls: Map<UnitId, Ref<Ragdoll>>,
   particles: Vec<Ref<Particle>>,
+  flying_tiles: Vec<Ref<AnimTile>>,
   hud: Ref<Hud>,
+  camera_ref: Ref<IVec>,
 
   // record where stuff gets drawn in ui
   layout: Map<HudItem, Rect>,
@@ -122,8 +124,15 @@ pub struct Ragdoll {
 }
 pub type Particle = Ragdoll;
 
+pub struct AnimTile {
+  pub pos: Vec2,
+  pub tile: Tile,
+  pub rot: D8,
+  pub dead: bool,
+}
+
 impl SimulationState {
-  pub fn new() -> Self {
+  pub fn new(display: &Display) -> Self {
     let mut sim = SimulationState {
       player_pos: IVec::ONE,
       player_hp: STARTING_HP,
@@ -157,20 +166,41 @@ impl SimulationState {
       animations: AnimationQueue::new(),
       ragdolls: Map::new(),
       particles: Vec::new(),
+      flying_tiles: Vec::new(),
       hud: Ref::new(Hud::new()),
+      camera_ref: Ref::new(IVec::ZERO),
 
       layout: Map::new(),
     };
+
+    // initialize HUD
+    let margin = 15.;
+    let sz = DISPLAY_GRID.tile_size;       // without tile margin
+    let x = 0.;
+    let h = sz.y + 2. * margin;
+    let y = display.dim.y - h;
+    let w = display.dim.x;
+    let hudbar = Rect { x, y, w, h };
+    sim.layout.insert(HudItem::Bar, hudbar);
+    let r = Rect {
+      x: hudbar.w - sz.x - margin,
+      y: hudbar.y + margin ,
+      w: sz.x,
+      h: sz.y
+    };
+    sim.layout.insert(HudItem::Tile, r);
+
+    // initialize starting tiles
     let boss_lair_tiles = boss_lair(&mut sim.rng);
-    sim.place_tile(Position { x: -1, y: 1 }, boss_lair_tiles[0]);
-    sim.place_tile(Position { x: 0, y: 1 }, boss_lair_tiles[1]);
-    sim.place_tile(Position { x: 1, y: 1 }, boss_lair_tiles[2]);
-    sim.place_tile(Position { x: -1, y: 0 }, boss_lair_tiles[3]);
-    sim.place_tile(Position { x: 0, y: 0 }, boss_lair_tiles[4]);
-    sim.place_tile(Position { x: 1, y: 0 }, boss_lair_tiles[5]);
-    sim.place_tile(Position { x: -1, y: -1 }, boss_lair_tiles[6]);
-    sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7]);
-    sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8]);
+    sim.place_tile(Position { x: -1, y: 1 }, boss_lair_tiles[0], display);
+    sim.place_tile(Position { x: 0, y: 1 }, boss_lair_tiles[1], display);
+    sim.place_tile(Position { x: 1, y: 1 }, boss_lair_tiles[2], display);
+    sim.place_tile(Position { x: -1, y: 0 }, boss_lair_tiles[3], display);
+    sim.place_tile(Position { x: 0, y: 0 }, boss_lair_tiles[4], display);
+    sim.place_tile(Position { x: 1, y: 0 }, boss_lair_tiles[5], display);
+    sim.place_tile(Position { x: -1, y: -1 }, boss_lair_tiles[6], display);
+    sim.place_tile(Position { x: 0, y: -1 }, boss_lair_tiles[7], display);
+    sim.place_tile(Position { x: 1, y: -1 }, boss_lair_tiles[8], display);
     sim.spawn_enemy(EnemyType::GhostWitch, BOSS_LOCATION);
     sim.move_player(sim.player_pos);
     sim.next_tile();
@@ -324,9 +354,18 @@ impl SimulationState {
     }
   }
 
-  pub fn place_tile(&mut self, position: Position, tile: Tile) {
+  pub fn place_tile(&mut self, position: Position, tile: Tile, display: &Display) {
     self.board[position] = tile;
-
+    //animate tile
+    self.animations.append_empty(0.);
+    self.animations.append_empty(BASE_ANIMATION_DURATION * 0.5)
+      .chain();
+    let to = display.pos_rect(Vec2::from(position)).center();
+    let from = self.layout[&HudItem::Tile].center();
+    self.launch_tile(from, to, &tile, D8::E, 3., 0.1)
+      .chain();
+    self.add_tiles(1)
+      .chain();
     { // region tracking
       // merge regions
       for d in Dir4::list() {
@@ -751,6 +790,59 @@ impl SimulationState {
     })
   }
 
+  pub fn launch_tile(
+    &mut self,
+    from: ScreenCoords,
+    to: ScreenCoords,
+    tile: &Tile,
+    g: D8,
+    kick: f64, // multiplier on initial (random) velocity
+    decay: f64 // percentage of remaining distance remaining after a second
+    ) -> &mut Animation {
+    let loctile: Tile = tile.clone();
+    let p = Ref::new(AnimTile {
+      pos: from, 
+      tile: *tile,
+      rot: g,
+      dead: false
+    });
+
+    let mut cr = IVec::ZERO;
+    let mut disp: Display;
+    unsafe {
+      cr = self.camera_ref.get().clone();
+    }
+    let v: Ref<Vec2> = Ref::new({
+      let mut x: f32 = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
+      x = x.signum() * x.abs().sqrt();
+      let mut y = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
+      y = y.signum() * y.abs().sqrt();
+      kick as f32 * Vec2 { x, y }
+    });
+
+    self.flying_tiles.push(p.clone());
+    // debug!("animations: {}", self.animations.len());
+    // debug!("particles: {}", self.particles.len());
+
+    self.animations.append(move |time: Time| {
+      let d = decay.powf(time.delta) as f32;
+      let coffset = DISPLAY_GRID.to_screen(cr.into());
+      let to2 = to;
+      let offset = p.pos - to2;
+      debug!("cr {:?} to {:?} to2 {:?}", coffset, to, to2);
+      unsafe{
+        let it = p.get();
+        it.pos = to2 + d * offset;
+        it.pos += *v;
+        *v.get() *= d;
+        it.tile = loctile;
+        it.rot = g;
+        it.dead = to.distance(it.pos) < 20.;
+      }
+      !p.dead
+    })
+  }
+
   pub fn launch_particle(
     &mut self,
     from: ScreenCoords,
@@ -837,6 +929,11 @@ impl SimulationState {
         self.particles.remove(i);
       }
     }
+    for i in (0..self.flying_tiles.len()).rev() {
+      if self.flying_tiles[i].dead {
+        self.flying_tiles.remove(i);
+      }
+    }
   }
 }
 
@@ -849,13 +946,13 @@ async fn main() {
   error!("and errors, the red ones!");
   warn!("Or warnings, the yellow ones.");
 
-  let mut sim = SimulationState::new();
-
   let mut resources = Resources::new(ASSETS);
   for path in LOAD_ME { resources.load_texture(path, FilterMode::Linear); }
 
   let display_dim: Vec2 = DISPLAY_GRID.dim();
   let mut display = Display::new(resources, display_dim);
+
+  let mut sim = SimulationState::new(&display);
 
   let mut victory = false;
   let mut debug_draw = false;
@@ -869,7 +966,7 @@ async fn main() {
 
     if let Some(input) = get_input() {
       if sim.hud.defeat {
-        sim = SimulationState::new();
+        sim = SimulationState::new(&display);
         next_frame().await;
         continue;
       }
@@ -1055,7 +1152,7 @@ async fn main() {
 
         // try to place tile
         if sim.board[sim.player_pos] == Tile::default() && sim.player_tiles > 0 {
-          sim.place_tile(sim.player_pos, sim.player_current_tile());
+          sim.place_tile(sim.player_pos, sim.player_current_tile(), &display);
           tile_compat = sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
@@ -1155,6 +1252,9 @@ async fn main() {
     //debug!("{:?}", sim.player_pos);
     let camera_offset: IVec = display.camera_focus - sim.player_pos;
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
+    unsafe {
+      *sim.camera_ref.get() = display.camera_focus;
+    }
 
     {//monsters
       let mut monsters_go = false;
@@ -1337,14 +1437,13 @@ async fn main() {
 
         let margin = 15.;
         let sz = DISPLAY_GRID.tile_size;       // without tile margin
+        let x = 0.;
+        let h = sz.y + 2. * margin;
+        let y = display.dim.y - h;
+        let w = display.dim.x;
+        let rect = Rect { x, y, w, h };
 
         { // Bar
-          let x = 0.;
-          let h = sz.y + 2. * margin;
-          let y = display.dim.y - h;
-          let w = display.dim.x;
-          let rect = Rect { x, y, w, h };
-          sim.layout.insert(HudItem::Bar, rect);
           draw_rectangle(x, y, w, h, DARKGRAY);
         }
 
@@ -1541,6 +1640,11 @@ async fn main() {
         for p in &sim.particles {
           let r = Rect{x:-32., y: -32., w: 64., h: 64.}.offset(p.pos);
           display.draw_img(r, p.color, &p.img);
+        }
+        for t in &sim.flying_tiles {
+          let r = Rect{x:-32., y: -32., w: 128., h: 128.}.offset(t.pos);
+          let rot = (t.rot * Dir4::Right).radians();
+          display.draw_tile(r, t.tile, rot);
         }
       }
 
