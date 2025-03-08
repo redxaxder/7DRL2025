@@ -446,6 +446,7 @@ impl SimulationState {
       }
     }
     if tile_reward > 0 {
+      let from = display.pos_rect(self.player_pos.into()).center();
       let to = self.layout[&HudItem::Tile].center();
       self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();

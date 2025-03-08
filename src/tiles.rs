@@ -93,10 +93,10 @@ pub const TABLE: &[(usize, [Terrain;5])] = &[
   ( 10, [Road,Road,Road,River,None]),
 
   // ROADS 2 -> _ 2 (elbow)
-  ( 50, [Road,Road,Forest,Forest,None]),
-  (100, [Road,Road,Grass,Grass,None]),
-  ( 50, [Road,Road,Town,Town,None]),
-  ( 50, [Road,Road,River,River,None]),
+  (100, [Road,Road,Forest,Forest,None]),
+  (200, [Road,Road,Grass,Grass,None]),
+  (100, [Road,Road,Town,Town,None]),
+  (100, [Road,Road,River,River,None]),
   // ROADS 2 -> _ 1 -> _1 (elbow)
   ( 80, [Road,Road,Forest,Grass,None]),
   ( 40, [Road,Road,Grass,Town,None]),
@@ -106,10 +106,10 @@ pub const TABLE: &[(usize, [Terrain;5])] = &[
   ( 10, [Road,Road,Forest,River,None]),
 
   // ROADS 2 -> _ 2 (bridge)
-  ( 40, [Road,Forest,Road,Forest,Road]),
-  ( 60, [Road,Grass,Road,Grass,Road]),
-  ( 20, [Road,Town,Road,Town,Road]),
-  ( 20, [Road,Town,Road,Town,Town]),
+  ( 80, [Road,Forest,Road,Forest,Road]),
+  (120, [Road,Grass,Road,Grass,Road]),
+  ( 40, [Road,Town,Road,Town,Road]),
+  ( 40, [Road,Town,Road,Town,Town]),
   ( 40, [Road,River,Road,River,Road]),
   // ROADS 2 -> _ 1 -> _1 (bridge)
   ( 50, [Road,Forest,Road,Grass,Road]),
