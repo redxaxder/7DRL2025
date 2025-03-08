@@ -1041,7 +1041,7 @@ async fn main() {
           if q.quota < 1 {
             let distance = torus_max_norm(BOARD_RECT, p - ppos);
             debug!("asdfasdf {} {:?}", distance, p-ppos);
-            if distance >= 5 { continue; }
+            if distance >= 4 { continue; }
 
             fulfilled_quests.insert(p, q);
             sim.quests.remove(p);
