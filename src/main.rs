@@ -1162,7 +1162,7 @@ async fn main() {
         { // Quest reward, spawn quest items
           let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
           for (&p, &q) in sim.quests.clone().iter() {
-            if q.quota < 1 {
+            if q.quota < 1 && sim.player_hp > 0 {
               let distance = torus_max_norm(BOARD_RECT, p - target);
               if distance >= 4 { continue; }
 

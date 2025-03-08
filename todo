@@ -6,8 +6,8 @@
 - explanation of perfect tiles
 - explanation of tile placement hints
 - indicate simulated-but-not-animated travel path
-- don't finish quest if player dies
-- hide hud tile if tile count is zero
++ don't finish quest if player dies
++ hide hud tile if tile count is zero
 
 
 + flash arrow on invalid move
