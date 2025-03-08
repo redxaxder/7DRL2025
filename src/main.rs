@@ -5,14 +5,18 @@ use rl2025::tiles::boss_lair;
 use footguns::Ref;
 
 type RegionId = u16;
-const MONSTER_SPAWN_CHANCE: u64 = 20; // units are 1/10 percent
+
+// each turn, every void space produces a spawn point
+// they increase monster spawn chance
+// when a monster spawns, these are consumed
+const MONSTER_SPAWN_POINTS: i64 = 30;
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
 const REGION_REWARD_THRESHOLD: usize = 4;
 const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
 
 const STARTING_HP: i64 = 6;
-const STARTING_TILES: i64 = 60;
+const STARTING_TILES: i64 = 35;
 
 const DEBUG_IMMORTAL: bool = false;
 const BOSS_LOCATION:IVec = IVec::ZERO;
@@ -49,6 +53,7 @@ struct SimulationState {
   void_frontier: WrapSet,
 
   enemies: WrapMap<Enemy>,
+  enemy_supply: i64,
   num_bosses: usize,
   rng: Rng,
 
@@ -133,6 +138,7 @@ impl SimulationState {
       monster_turns: 0,
       board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
+      enemy_supply: 0,
       quests: WrapMap::new(BOARD_RECT),
       prizes: WrapMap::new(BOARD_RECT),
       regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
@@ -206,6 +212,7 @@ impl SimulationState {
 
   pub fn spawn_enemy(&mut self, t: EnemyType, at: Position) {
     let nme = Enemy::new(t);
+    self.enemy_supply -= MONSTER_SPAWN_POINTS;
     self.enemies.insert(at, nme);
     let rdr = self.ragdoll_ref(nme.id);
     if self.board[at] != Tile::default() {
@@ -418,16 +425,17 @@ impl SimulationState {
       if !river_reward { return; }
     }
     let xp_reward = if terrain == Terrain::Town {
-      size
+      size.saturating_sub(1)
     } else {
       size.saturating_sub(REGION_REWARD_THRESHOLD)
     };
+    let tile_reward = if size > REGION_REWARD_THRESHOLD { 1 } else { 0 };
     if xp_reward > 0 {
       let from = display.pos_rect(self.player_pos.into()).center();
       {
         let to = self.layout[&HudItem::Xp].center();
         for i in 0..xp_reward {
-          let delay = i as f64 * 0.1;
+          let delay = i as f64 * 0.15;
           self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
           self.animations.append_empty(delay).chain();
           self.launch_particle(from, to, XP, YELLOW, 3., 0.03)
@@ -435,11 +443,12 @@ impl SimulationState {
             self.add_xp(1).chain();
         }
       }
+    }
+    if tile_reward > 0 {
       let to = self.layout[&HudItem::Tile].center();
       self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
       self.add_tiles(1).chain();
-      //debug!("region reward: {} xp 1 tile", xp_reward);
     }
   }
 
@@ -1152,6 +1161,7 @@ async fn main() {
 
       let mut acceleration = 1.0;
       while monsters_go && sim.monster_turns > 0 {
+        sim.enemy_supply += sim.void_frontier.len() as i64;
         spawns.clear();
         sim.update_nearest_dmap();
         //do monster turn
@@ -1168,7 +1178,7 @@ async fn main() {
             // don't spawn a monster if there's already a monster
             continue;
           }
-          if roll_chance(&mut sim.rng, MONSTER_SPAWN_CHANCE) {
+          if ((sim.rng.next_u64() % 5000) as i64 ) < sim.enemy_supply {
             //spawn a monster in this tile
             let random_enemy_type =
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
