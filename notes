@@ -72,7 +72,7 @@ v0.2 "iterable"
     + backup monsters stream in from a unique cave tile
 v0.3 "qol"
  + end game screen / detection
- - there is a boss mcguffin that gives you like a million tiles
+ x there is a boss mcguffin that gives you like a million tiles
  + animate particles for
    + gaining exp
    + gaining tiles
@@ -90,7 +90,7 @@ v0.3 "qol"
    - player
    - monsters
    + quest scroll
-   - terrain
+   + terrain
      + road16
      + river16
      + town16
@@ -99,19 +99,19 @@ v0.3 "qol"
      x folder per terrain type
      x files 0000.png through 1111.png (skip as needed)  right, up, left, down
      x 1010_connected, 1010_split, 0101_connected, 0101_split.png
-   - mcguffin
-   - UI
-     - exp
-     - hp
-     - quest heal item
-     - monster turns
+   x mcguffin
+   + UI
+     + exp
+     + hp
+     + quest heal item
+     + monster turns
  - sounds?
  - music?
  + indicate off-map monsters (red eyes?)
  - click to move / place tile
    - hover shows movement path
    - movement path is displayed differently if passing through forced combat
- - tile hints
+ + tile hints
    + shows where on the screen the current tile can be played
    + put a tick mark in the top left corner of the tile in hand
    + on playable positions put tick mark in the corner of the spot based on rotation
