@@ -11,6 +11,7 @@ type RegionId = u16;
 // when a monster spawns, these are consumed
 const MONSTER_SPAWN_POINTS: i64 = 30;
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
+const QUEST_MIN: u64 = 3;
 const FOREST_ESCAPE_CHANCE: u64 = 250;
 const REGION_REWARD_THRESHOLD: usize = 4;
 const NUM_BOSSES: usize = 15;
@@ -444,24 +445,20 @@ impl SimulationState {
     };
     let tile_reward = if size > REGION_REWARD_THRESHOLD { 1 } else { 0 };
     if xp_reward > 0 {
-      let from = display.pos_rect(self.player_pos.into()).center();
-      {
-        let to = self.layout[&HudItem::Xp].center();
-        for i in 0..xp_reward {
-          let delay = i as f64 * 0.15;
-          self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-          self.animations.append_empty(delay).chain();
-          self.launch_particle(from, to, XP, YELLOW, 3., 0.03)
-            .chain();
-            self.add_xp(1).chain();
-        }
+      let to = self.layout[&HudItem::Xp].center();
+      for i in 0..xp_reward {
+        let delay = i as f64 * 0.15;
+        self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+        self.animations.append_empty(delay).chain();
+        self.launch_particle(self.player_pos, to, XP, YELLOW, 3., 0.03)
+          .chain();
+          self.add_xp(1).chain();
       }
     }
     if tile_reward > 0 {
-      let from = display.pos_rect(self.player_pos.into()).center();
       let to = self.layout[&HudItem::Tile].center();
-      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-      self.launch_particle(from, to, TILE, GRAY, 3., 0.1).chain();
+      //self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      self.launch_particle(self.player_pos, to, TILE, GRAY, 3., 0.1).chain();
       self.add_tiles(1).chain();
     }
   }
@@ -623,7 +620,7 @@ impl SimulationState {
     self.animations.append(empty_animation)
       .require([id, PLAYER_UNIT_ID]);
     self.launch_particle(
-      display.pos_rect(Vec2::from(at)).center(),
+      at,
       self.layout[&HudItem::Xp].center(),
       XP,
       YELLOW,
@@ -807,7 +804,7 @@ impl SimulationState {
 
   pub fn launch_particle(
     &mut self,
-    from: ScreenCoords,
+    from: Position,
     to: ScreenCoords,
     img: Img,
     color: Color,
@@ -815,7 +812,8 @@ impl SimulationState {
     decay: f64 // percentage of remaining distance remaining after a second
     ) -> &mut Animation {
     let p = Ref::new(Particle {
-      pos: from, img,
+      pos: Vec2{x: f32::MAX, y: f32::MAX},
+      img,
       color: INVISIBLE,
       dead: false
     });
@@ -829,10 +827,15 @@ impl SimulationState {
     });
 
     self.particles.push(p.clone());
-    debug!("animations: {}", self.animations.len());
-    debug!("particles: {}", self.particles.len());
+    let origin = self.player_relative_coordinates(Vec2::from(from));
+    let cr = self.camera_ref.clone();
 
     self.animations.append(move |time: Time| {
+      if p.pos.x == f32::MAX {
+        let camera_focus = Vec2::from(*cr);
+        let origin_screen_pos = DISPLAY_GRID.rect(origin - camera_focus).center();
+        unsafe { p.get().pos = origin_screen_pos; }
+      }
       let d = decay.powf(time.delta) as f32;
       let offset = p.pos - to;
       unsafe{
@@ -952,11 +955,8 @@ async fn main() {
           if sim.player_xp >= sim.player_xp_next() {
             sim.add_xp(-sim.player_xp_next());
             sim.player_hp_max += 1;
-            let from = display.pos_rect(
-              sim.player_pos.into()
-            ).center();
             let to = sim.layout[&HudItem::Hp].center();
-            sim.launch_particle(from, to,
+            sim.launch_particle(sim.player_pos, to,
               HEART, RED,
               3., 0.02
             ).chain();
@@ -1044,20 +1044,13 @@ async fn main() {
             fulfilled_quests.insert(p, q);
             sim.quests.remove(p);
             sim.prizes.insert(p, Prize::Heal);
-            // launch particles from player pos since quest
-            // origin might be offscreen.
-            // maybe later check if its on screen first
-            let from = display.pos_rect(Vec2::from(p)).center();
             let to = sim.layout[&HudItem::Tile].center();
             for i in 0..(QUEST_REWARD as u8) {
               let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
               sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-              sim.animations.append_empty(delay)
-                .chain();
-                sim.launch_particle(from, to, TILE, GRAY, 3., 0.1)
-                  .chain();
-                sim.add_tiles(1)
-                  .chain();
+              sim.animations.append_empty(delay).chain();
+              sim.launch_particle(p, to, TILE, GRAY, 3., 0.1).chain();
+              sim.add_tiles(1).chain();
             }
           }
         }
@@ -1123,14 +1116,13 @@ async fn main() {
                 }
               }
               if is_matched {
-                let from = display.pos_rect(p.into()).center();
                 let to = sim.layout[&HudItem::Tile].center();
                 sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
 
                 sim.defer_set_hud(move |hud| {
                   hud.highlighted_spaces.insert(p);
                 });
-                sim.launch_particle(from, to, TILE, SKYBLUE, 0.5, 0.1).chain();
+                sim.launch_particle(p, to, TILE, SKYBLUE, 0.5, 0.1).chain();
                 sim.add_tiles(1).chain();
                 sim.defer_set_hud(move |hud| {
                   hud.highlighted_spaces.remove(p);
@@ -1165,10 +1157,9 @@ async fn main() {
           }
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
-            let from = display.pos_rect(target.into()).center();
             let to = sim.layout[&HudItem::SpeedPenalty].center();
             sim.animations.append(empty_animation).require(target);
-            sim.launch_particle(from, to,
+            sim.launch_particle(target, to,
               TIME, BLUE, 0.4, 0.03
             ).chain();
             sim.add_monster_turns(1).chain();
@@ -1186,10 +1177,9 @@ async fn main() {
         // try to collect prize
         if let Some(&prize) = sim.prizes.get(target) {
           sim.prizes.remove(target);
-          let from = display.pos_rect(target.into()).center();
           let to = sim.layout[&HudItem::Hp].center();
           sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
-          sim.launch_particle(from, to,
+          sim.launch_particle(target, to,
             prize_img(prize), RED,
             3., 0.02
           ).chain();
@@ -1777,7 +1767,7 @@ pub fn eligible_for_quest(enemies: &WrapMap<Enemy>,
     let nme_types: Vec<&EnemyType> = nme_counts.keys().collect();
     let selected_type = nme_types[rng.next_u32() as usize % nme_types.len()];
     let mut quest = Quest::new();
-    let quota = nme_counts.get(selected_type).unwrap().max(&3);
+    let quota = nme_counts.get(selected_type).unwrap().max(&QUEST_MIN);
     quest.target = *selected_type;
     quest.quota = *quota;
     Some(quest)
