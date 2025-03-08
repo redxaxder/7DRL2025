@@ -92,6 +92,7 @@ pub struct Hud {
   pub tile_rotation: f32,
   pub tile_transform: D8,
   pub highlighted_spaces: WrapSet,
+  pub hidden_spaces: WrapSet,
 }
 impl Hud {
   pub fn new() -> Self {
@@ -107,6 +108,7 @@ impl Hud {
       tile_rotation: 0.,
       tile_transform: D8::E,
       highlighted_spaces: WrapSet::new(BOARD_RECT),
+      hidden_spaces: WrapSet::new(BOARD_RECT),
     }
   }
 }
@@ -1064,8 +1066,13 @@ async fn main() {
         // try to place tile
         if sim.board[target] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(target, sim.player_current_tile());
-          sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.005)
-            .require(target);
+          unsafe {
+            sim.hud.get().hidden_spaces.insert(target);
+          }
+          sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.003
+          ).require(target);
+          sim.defer_set_hud(move |hud|{ hud.hidden_spaces.remove(target);} )
+            .chain();
           tile_compat = sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
@@ -1298,9 +1305,13 @@ async fn main() {
       for &terrain in Terrain::DRAW_ORDER {
         for offset in DRAW_BOUNDS.iter() {
           let p = sim.player_pos + offset;
-          let tile = sim.board[p];
+          let mut tile = sim.board[p];
+          if terrain == Terrain::None && sim.hud.hidden_spaces.contains(p) {
+            tile = Tile::default();
+          }
           let r = display.pos_rect(p.into());
           display.draw_tile_1(r, tile, terrain, 0.);
+
         }
       }
       // draw terrain highlights
