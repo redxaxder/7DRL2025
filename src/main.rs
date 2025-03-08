@@ -1035,33 +1035,6 @@ async fn main() {
         }
       }
 
-      { // Quest reward, spawn quest items
-        let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
-        let ppos = sim.player_pos;
-        for (&p, &q) in sim.quests.clone().iter() {
-          if q.quota < 1 {
-            let distance = torus_max_norm(BOARD_RECT, p - ppos);
-            debug!("asdfasdf {} {:?}", distance, p-ppos);
-            if distance >= 4 { continue; }
-
-            fulfilled_quests.insert(p, q);
-            sim.quests.remove(p);
-            sim.prizes.insert(p, Prize::Heal);
-            let to = sim.layout[&HudItem::Tile].center();
-            for i in 0..(QUEST_REWARD as u8) {
-              let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
-              sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-              sim.animations.append_empty(delay).chain();
-              sim.launch_particle(p, to, TILE, GRAY, 3., 0.1).chain();
-              sim.add_tiles(1).chain();
-            }
-          }
-        }
-        sim.animations.append_empty(0.).require(ppos);
-        for p in fulfilled_quests.keys() {
-          sim.quests.remove(*p);
-        }
-      }
 
       let using_road = sim.is_road_dir(playermove);
       can_move = can_move && (!needs_road || using_road);
@@ -1176,6 +1149,32 @@ async fn main() {
         sim.move_player(target);
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
+
+        { // Quest reward, spawn quest items
+          let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
+          for (&p, &q) in sim.quests.clone().iter() {
+            if q.quota < 1 {
+              let distance = torus_max_norm(BOARD_RECT, p - target);
+              if distance >= 4 { continue; }
+
+              fulfilled_quests.insert(p, q);
+              sim.quests.remove(p);
+              sim.prizes.insert(p, Prize::Heal);
+              let to = sim.layout[&HudItem::Tile].center();
+              for i in 0..(QUEST_REWARD as u8) {
+                let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
+                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                sim.animations.append_empty(delay).chain();
+                sim.launch_particle(p, to, TILE, GRAY, 3., 0.1).chain();
+                sim.add_tiles(1).chain();
+              }
+            }
+          }
+          for p in fulfilled_quests.keys() {
+            sim.quests.remove(*p);
+          }
+        }
+
 
         // try to collect prize
         if let Some(&prize) = sim.prizes.get(target) {

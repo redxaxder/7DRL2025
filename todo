@@ -1,4 +1,4 @@
-- janky quest proximity check
++ janky quest proximity check
 + low hp danger reminder
 - hide unplaced tiles
 - [bug] enemies camp out in darkness sometimes
@@ -6,6 +6,7 @@
 - explanation of tile placement hints
 - indicate simulated-but-not-animated travel path
 - don't finish quest if player dies
+- hide hud tile if tile count is zero
 
 
 + flash arrow on invalid move
