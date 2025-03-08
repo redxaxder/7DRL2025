@@ -567,6 +567,8 @@ impl SimulationState {
     if !self.enemies.contains_key(to) {
       if let Some(nme) = self.enemies.remove(from) {
         self.enemies.insert(to, nme);
+
+        // animations
         let t0 = Vec2::from(from);
         let t1 = Vec2::from(to);
         let mid = (t0 + t1) / 2.;
@@ -1506,6 +1508,8 @@ async fn main() {
           { // Current/Max HP and XP
             let bar = sim.layout[&HudItem::Bar];
             let arrows = sim.layout[&HudItem::Arrows];
+            let blink = get_time() % (2. * BLINK) > BLINK;
+
             let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
             let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
             let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
@@ -1524,10 +1528,10 @@ async fn main() {
               h: xpdim.height,
               y: bar.y + (0.66 * leftover) + hpr.h,
             };
-            draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, sim.hud.hp_color);
+            let hp_color = if sim.player_hp == 1 && blink { RED } else { sim.hud.hp_color };
+            draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, hp_color);
             const BLINK: f64 = 1.;
             let mut xp_color = WHITE;
-            let blink = get_time() % (2. * BLINK) > BLINK;
             let can_level = sim.hud.xp >= sim.player_xp_next();
             if can_level && blink {
               xp_color = YELLOW;
@@ -1686,10 +1690,20 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
   let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board, &mut sim.rng);
+  debug!("forest dirs {:?} for {:?}", valid, sim.enemies[pos]);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
     valid = Dir4::list().into();
   }
+  else {
+    // still have a chance to escape the forest
+    for d in Dir4::list().iter() {
+      if roll_chance(&mut sim.rng, FOREST_ESCAPE_CHANCE) {
+        valid.push(*d);
+      }
+    }
+  }
+  debug!("valid dirs {:?} for {:?}", valid, sim.enemies[pos]);
 
   let mut candidates: Vec<IVec> = Vec::new();
   for &d in &valid {
@@ -1745,8 +1759,7 @@ pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>, rng: &mut Rng) -> Ve
     let neighbor: Tile = board[*pos + dir.into()];
     let edge1 = tile.contents[ix];
     let edge2 = neighbor.contents[dir.opposite().index()];
-    let escape = roll_chance(rng, FOREST_ESCAPE_CHANCE);
-    if (edge1 == Terrain::Forest && edge2 == Terrain::Forest) || escape {
+    if edge1 == Terrain::Forest && edge2 == Terrain::Forest {
       candidates.push(dir);
     }
   }

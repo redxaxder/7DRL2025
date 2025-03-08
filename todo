@@ -1,7 +1,8 @@
 + janky quest proximity check
 + low hp danger reminder
 + hide unplaced tiles
-- [bug] enemies camp out in darkness sometimes
++ flash arrow on invalid move
++ [bug] enemies camp out in darkness sometimes
 - explanation of perfect tiles
 - explanation of tile placement hints
 - indicate simulated-but-not-animated travel path
