@@ -1437,17 +1437,19 @@ async fn main() {
               h: sz.y
             };
             sim.layout.insert(HudItem::Tile, r);
-            display.draw_tile(
-              r,
-              sim.hud.tile_transform * sim.player_next_tile,
-              sim.hud.tile_rotation as f32
+            if sim.player_tiles > 0 {
+              display.draw_tile(
+                r,
+                sim.hud.tile_transform * sim.player_next_tile,
+                sim.hud.tile_rotation as f32
               );
-            display.draw_img_r(
-              r,
-              WHITE,
-              &HINT,
-              (sim.hud.tile_transform * Dir4::Right).radians() + sim.hud.tile_rotation,
-            );
+              display.draw_img_r(
+                r,
+                WHITE,
+                &HINT,
+                (sim.hud.tile_transform * Dir4::Right).radians() + sim.hud.tile_rotation,
+              );
+            }
             if let Some(q) = sim.next_quest {
               draw_quest(&display, &r, &q);
             }
