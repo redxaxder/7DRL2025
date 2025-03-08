@@ -381,3 +381,11 @@ pub fn draw_quest(display: &Display, r: &Rect, quest: &Quest) {
   let text_y = er.y + textdim.height * 0.2;
   draw_text(&quest_text, text_x, text_y, font_size.into(), BLACK);
 }
+
+
+pub fn torus_max_norm(bounds: IRect, v: IVec) -> i16 {
+  let w = bounds.wrap(v);
+  let y = (w.y - bounds.y).min(bounds.y + bounds.height - w.y);
+  let x = (w.x - bounds.x).min(bounds.x + bounds.width - w.x);
+  x.max(y)
+}

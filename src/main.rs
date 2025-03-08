@@ -870,6 +870,7 @@ async fn main() {
     if let Some(input) = get_input() {
       if sim.hud.defeat {
         sim = SimulationState::new();
+        next_frame().await;
         continue;
       }
       match input {
@@ -970,39 +971,43 @@ async fn main() {
         } else { // nobody in this spot to fight
           needs_road = true;
         }
+      }
 
-        { // Quest reward, spawn quest items
-          let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
-          let ppos = sim.player_pos;
-          for (&p, &q) in sim.quests.clone().iter() {
-            if q.quota < 1 {
-              fulfilled_quests.insert(p, q);
-              sim.quests.remove(p);
-              sim.prizes.insert(p, Prize::Heal);
-              // launch particles from player pos since quest
-              // origin might be offscreen.
-              // maybe later check if its on screen first
-              let from = display.pos_rect(Vec2::from(ppos)).center();
-              let to = sim.layout[&HudItem::Tile].center();
-              for i in 0..(QUEST_REWARD as u8) {
-                let delay = f64::from(i)* 0.5  * BASE_ANIMATION_DURATION ;
-                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-                sim.animations.append_empty(delay)
-                  .chain();
+      { // Quest reward, spawn quest items
+        let mut fulfilled_quests: WrapMap<Quest> = WrapMap::new(BOARD_RECT);
+        let ppos = sim.player_pos;
+        for (&p, &q) in sim.quests.clone().iter() {
+          if q.quota < 1 {
+            let distance = torus_max_norm(BOARD_RECT, p - ppos);
+            debug!("asdfasdf {} {:?}", distance, p-ppos);
+            if distance >= 5 { continue; }
+
+            fulfilled_quests.insert(p, q);
+            sim.quests.remove(p);
+            sim.prizes.insert(p, Prize::Heal);
+            // launch particles from player pos since quest
+            // origin might be offscreen.
+            // maybe later check if its on screen first
+            let from = display.pos_rect(Vec2::from(p)).center();
+            let to = sim.layout[&HudItem::Tile].center();
+            for i in 0..(QUEST_REWARD as u8) {
+              let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
+              sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+              sim.animations.append_empty(delay)
+                .chain();
                 sim.launch_particle(from, to, TILE, GRAY, 3., 0.1)
                   .chain();
                 sim.add_tiles(1)
                   .chain();
-              }
             }
           }
-          sim.animations.append_empty(0.).require(ppos);
-          for p in fulfilled_quests.keys() {
-            sim.quests.remove(*p);
-          }
         }
-
+        sim.animations.append_empty(0.).require(ppos);
+        for p in fulfilled_quests.keys() {
+          sim.quests.remove(*p);
+        }
       }
+
       let using_road = sim.is_road_dir(playermove);
       can_move = can_move && (!needs_road || using_road);
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
