@@ -10,7 +10,7 @@ type RegionId = u16;
 // they increase monster spawn chance
 // when a monster spawns, these are consumed
 const MONSTER_SPAWN_POINTS: i64 = 30;
-const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
+const QUEST_SPAWN_CHANCE: u64 = 83; // units are 1/10 percent, roughly once in 12 tiles
 const QUEST_MIN: u64 = 3;
 const FOREST_ESCAPE_CHANCE: u64 = 250;
 const REGION_REWARD_THRESHOLD: usize = 4;
