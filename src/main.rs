@@ -73,6 +73,8 @@ struct SimulationState {
   flying_tiles: Vec<Ref<AnimTile>>,
   hud: Ref<Hud>,
   camera_ref: Ref<IVec>,
+  compass_flash: f32,
+
 
   // record where stuff gets drawn in ui
   layout: Map<HudItem, Rect>,
@@ -169,6 +171,7 @@ impl SimulationState {
       flying_tiles: Vec::new(),
       hud: Ref::new(Hud::new()),
       camera_ref: Ref::new(IVec::ZERO),
+      compass_flash: 0.,
 
       layout: Map::new(),
     };
@@ -1185,13 +1188,11 @@ async fn main() {
           ).chain();
           sim.full_heal().chain();
         }
-
-
-
       }
+
+
       if sim.player_dead() {
         sim.player_defeat = true;
-
         let dirvec: Vec2 = (sim.player_pos - target).into();
         let mut velocity: Vec2 = Vec2::from(dirvec) * 3.;
         velocity.x += (sim.rng.next_u32() % 1000) as f32 / 1000.;
@@ -1204,6 +1205,7 @@ async fn main() {
           2.).reserve(PLAYER_UNIT_ID);
         sim.defer_set_hud(|hud| hud.defeat = true).chain();
       }
+      if !player_moved { sim.compass_flash = 0.6; }
     }
 
     //debug!("{:?}", sim.player_pos);
@@ -1458,6 +1460,15 @@ async fn main() {
               w: sz.x,
               h: sz.y,
             };
+
+            const BLINK: f32 = 0.1;
+            let arrow_color = if sim.compass_flash > 0. &&
+              (sim.compass_flash % (2. * BLINK) > BLINK) {
+              RED
+            } else {
+              WHITE
+            };
+
             sim.layout.insert(HudItem::Arrows, rect);
             for d in Dir4::list() {
               let target = sim.player_pos + d.into();
@@ -1476,7 +1487,7 @@ async fn main() {
               }
               display.draw_img(
                 rect,
-                WHITE,
+                arrow_color,
                 &arrow_img(d),
               )
             }
@@ -1628,6 +1639,7 @@ async fn main() {
       );
     }
 
+    sim.compass_flash -= get_frame_time();
     next_frame().await;
 
     if victory && sim.animations.len() == 0 {
