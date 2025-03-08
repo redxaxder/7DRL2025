@@ -16,43 +16,34 @@ Controls:
 Gameplay Basics:
 
 Place tiles from your hand while dealing with monsters and fulfilling
-quests. Moving onto a blank space will place the tile currently in your
-hand. You can rotate that tile before you place it. Spaces you can play on are
-marked with a square. Monsters take a turn when you place a tile.
-
-Once you have enough XP, you may press a button to level up. Leveling up gives
-you a full heal. If you don't like your current tile, you may press a button to
-discard it. Be careful, though, your tile supply is not infinite.
+quests. Moving onto a blank space will place the tile shown in the bottom right
+of the screen. You can rotate that tile before you place it. Spaces you can play
+on are marked with a square, and corners are marked to indicate good
+orientations. Monsters take a turn when you place a tile.
 
 Monsters:
 
-Monsters block your movement. If you are adjacent to a monster when you start
-your turn, you must fight it on your turn by moving towards it (some exceptions
-apply). You cannot evade a monster by placing a new tile. When you fight a
-monster, you also fight all of its friends, and you will be attacked by the
-entire group of connected monsters.
+Monsters restrict your movement. If you are adjacent to a monster when you start
+your turn, you must fight it on your turn (some exceptions apply).
 
 Tiles:
 
-Tiles have terrain on them. Roads and rivers must connect up in ways that make
-sense, but the other tiles need not match. Diligently matching tiles will,
-however, give you bonuses.
+Roads and rivers must connect up in ways that make sense, but the other terrain
+need not match. Diligently matching terrain will give you bonuses.
 
 Some tiles have a quest on them. Each quest is to kill a certain number of
 monster. Completing a quest will give you bonuses.
 
-| Terrain | Description                                                       |
-|---------+-------------------------------------------------------------------|
-| Forest  | Monsters will never leave a forest after entering a forest. They  |
-|         | may wander around in the forest, but they won't leave it.         |
-|         |                                                                   |
-| Town    | Monsters cannot enter a town through its walls, but they can come |
-|         | in through undefended parts.                                      |
-|         |                                                                   |
-| Road    | You can avoid fighting monsters by moving along a road.           |
-|         |                                                                   |
-| River   | Rivers slow you down. Monsters will take an extra turn for each   |
-|         | river movement you do.                                            |
-|         |                                                                   |
-| Grass   | It's just grass.                                                  |
+| Terrain | Description                                                     |
+|---------+-----------------------------------------------------------------|
+| Forest  | Monsters like forests.                                          |
+|         |                                                                 |
+| Town    | Towns give more matching bonuses than other terrains.           |
+|         |                                                                 |
+| Road    | You can avoid fighting monsters by moving along a road.         |
+|         |                                                                 |
+| River   | Rivers slow you down. Monsters will take an extra turn for each |
+|         | river movement you do.                                          |
+|         |                                                                 |
+| Grass   | It's just grass.                                                |
 

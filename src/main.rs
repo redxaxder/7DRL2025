@@ -11,6 +11,7 @@ type RegionId = u16;
 // when a monster spawns, these are consumed
 const MONSTER_SPAWN_POINTS: i64 = 30;
 const QUEST_SPAWN_CHANCE: u64 = 70; // units are 1/10 percent, roughly once in 15 tiles
+const FOREST_ESCAPE_CHANCE: u64 = 250;
 const REGION_REWARD_THRESHOLD: usize = 4;
 const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
@@ -1595,7 +1596,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board);
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board, &mut sim.rng);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
     valid = Dir4::list().into();
@@ -1646,7 +1647,7 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
   select_candidate(candidates, sim)
 }
 
-pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
+pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>, rng: &mut Rng) -> Vec<Dir4> {
   // right up left down (matching dir4.index)
   let mut candidates: Vec<Dir4> = Vec::new();
   let tile: Tile = board[*pos];
@@ -1655,7 +1656,8 @@ pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
     let neighbor: Tile = board[*pos + dir.into()];
     let edge1 = tile.contents[ix];
     let edge2 = neighbor.contents[dir.opposite().index()];
-    if edge1 == Terrain::Forest && edge2 == Terrain::Forest {
+    let escape = roll_chance(rng, FOREST_ESCAPE_CHANCE);
+    if (edge1 == Terrain::Forest && edge2 == Terrain::Forest) || escape {
       candidates.push(dir);
     }
   }
