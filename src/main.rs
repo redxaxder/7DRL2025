@@ -1409,7 +1409,9 @@ async fn main() {
           let h = sz.y + 2. * margin;
           let y = display.dim.y - h;
           let w = display.dim.x;
+          let rect = Rect { x, y, w, h };
           draw_rectangle(x, y, w, h, DARKGRAY);
+          sim.layout.insert(HudItem::Bar, rect);
         }
 
         if sim.hud.defeat {
