@@ -2,7 +2,7 @@
 use crate::*;
 
 
-pub const CAMERA_TETHER: IRect = IRect {x: -2, y: -2, width: 4, height: 3 };
+pub const CAMERA_TETHER: IRect = IRect {x: -2, y: -2, width: 4, height: 2 };
 
 
 pub const DISPLAY_GRID: Grid = Grid {

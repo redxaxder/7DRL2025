@@ -770,7 +770,6 @@ impl SimulationState {
     kick: f64, // multiplier on initial (random) velocity
     decay: f64 // percentage of remaining distance remaining after a second
     ) -> &mut Animation {
-    debug!("launch!");
     let p = Ref::new(AnimTile {
       pos: self.layout[&HudItem::Tile].center(),
       tile,
@@ -794,7 +793,6 @@ impl SimulationState {
       let target_board = Vec2::from(to - camera_focus);
       let target_screen_pos = DISPLAY_GRID.rect(target_board).center();
       let offset = p.pos - target_screen_pos;
-      debug!("{:?}; {:?}", target_board, offset);
       unsafe{
         let it = p.get();
         it.pos = target_screen_pos + d * offset;
@@ -1094,43 +1092,24 @@ async fn main() {
             && t1 == Terrain::River
         };
 
-
-        // clear monster alerts
-        sim.set_enemy_alerts(false);
-        sim.move_player(target);
-        player_moved = true;
-        //debug!("player: {:?}", sim.player_pos);
-
-        // try to collect prize
-        if let Some(&prize) = sim.prizes.get(target) {
-          sim.prizes.remove(target);
-          let from = display.pos_rect(target.into()).center();
-          let to = sim.layout[&HudItem::Hp].center();
-          sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
-          sim.launch_particle(from, to,
-            prize_img(prize), RED,
-            3., 0.02
-          ).chain();
-          sim.full_heal().chain();
-        }
-
         // try to place tile
-        if sim.board[sim.player_pos] == Tile::default() && sim.player_tiles > 0 {
+        if sim.board[target] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(target, sim.player_current_tile());
-          sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.005);
+          sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.005)
+            .require(target);
           tile_compat = sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
-          if let Some(nme) = sim.enemies.remove(sim.player_pos) {
+          if let Some(nme) = sim.enemies.remove(target) {
             sim.ragdolls.remove(&nme.id);
           }
           sim.update_region_sizes();
 
           { // check for perfect tile bonuses
             // on placed tile and neighbors
-            let mut to_check = vec!(sim.player_pos);
+            let mut to_check = vec!(target);
             for d in Dir4::list() {
-              to_check.push(sim.player_pos + d.into());
+              to_check.push(target + d.into());
             }
             for &p in &to_check {
               let mut is_matched = true;
@@ -1169,10 +1148,10 @@ async fn main() {
           // 2) its id *does not* appear in open regions
           let mut just_completed = Set::new();
           for d in Dir4::list() {
-            let p2 = sim.player_pos + d.into();
+            let p2 = target + d.into();
             let d2 = d.opposite();
             for regionid in [
-              sim.regions[sim.player_pos][d.index()],
+              sim.regions[target][d.index()],
               sim.regions[p2][d2.index()]
             ] {
               if regionid == RegionId::MAX { continue; }
@@ -1195,6 +1174,28 @@ async fn main() {
             sim.add_monster_turns(1).chain();
           }
         }
+
+
+
+        // clear monster alerts
+        sim.set_enemy_alerts(false);
+        sim.move_player(target);
+        player_moved = true;
+        //debug!("player: {:?}", sim.player_pos);
+
+        // try to collect prize
+        if let Some(&prize) = sim.prizes.get(target) {
+          sim.prizes.remove(target);
+          let from = display.pos_rect(target.into()).center();
+          let to = sim.layout[&HudItem::Hp].center();
+          sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
+          sim.launch_particle(from, to,
+            prize_img(prize), RED,
+            3., 0.02
+          ).chain();
+          sim.full_heal().chain();
+        }
+
 
 
       }
