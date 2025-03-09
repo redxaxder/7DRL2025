@@ -1127,7 +1127,8 @@ async fn main() {
           unsafe {
             sim.hud.get().hidden_spaces.insert(target);
           }
-          sim.launch_tile(target, sim.player_current_tile()).reserve(target);
+          sim.animations.append_empty(0.).reserve(target).reserve(PLAYER_UNIT_ID);
+          sim.launch_tile(target, sim.player_current_tile()).chain();
           sim.defer_set_hud(move |hud|{ hud.hidden_spaces.remove(target);} )
             .chain();
           sim.defer_play_sound(PLACE_TILE_SOUND).chain();
