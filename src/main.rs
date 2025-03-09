@@ -1379,7 +1379,7 @@ async fn main() {
       for rid in &sim.open_regions {
         let font_size = 40;
         if let Some(sz) = sim.region_sizes.get(&rid) {
-          if *sz >= REGION_REWARD_THRESHOLD {
+          if *sz > REGION_REWARD_THRESHOLD {
             let (pos, dir) = sim.region_start.get(&rid).unwrap();
             let terrain = sim.board[*pos].contents[dir.index()];
             let mut xp = *sz - REGION_REWARD_THRESHOLD;
