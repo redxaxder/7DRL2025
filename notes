@@ -116,9 +116,9 @@ v0.3 "qol"
    + put a tick mark in the top left corner of the tile in hand
    + on playable positions put tick mark in the corner of the spot based on rotation
    + color the tick mark based on whether the tile is a full or partial match
- - region hints
-   - if a region is large enough, give it a flag
-   - on the flag, put the size of the current exp reward
+ + region hints
+   + if a region is large enough, give it a flag
+   + on the flag, put the size of the current exp reward
 
 
 

@@ -28,6 +28,7 @@ pub const LOAD_ME: &[&'static str] = &[
   "arrows.png",
   "rothint.png",
   "path.png",
+  "flag.png",
 ];
 
 pub const SOUNDS_TO_LOAD: &[&'static str] = &[
@@ -72,6 +73,7 @@ pub const SCROLL: Img = def("scroll.png");
 pub const BLOCKED: Img = def("blocked.png");
 pub const HEART: Img = def("heart.png");
 pub const HINT: Img = def("rothint.png");
+pub const FLAG: Img = def("flag.png");
 
 
 pub const fn path_img(dir: Dir4, arrow: bool) -> Img {

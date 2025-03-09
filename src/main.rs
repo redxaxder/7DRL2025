@@ -1377,6 +1377,21 @@ async fn main() {
 
         }
       }
+      // draw region hints
+      for rid in &sim.open_regions {
+        let font_size = 45;
+        if let Some(sz) = sim.region_sizes.get(&rid) {
+          if *sz >= REGION_REWARD_THRESHOLD {
+            let (pos, dir) = sim.region_start.get(&rid).unwrap();
+            let terrain = sim.board[*pos].contents[dir.index()];
+            let mut r = display.pos_rect((*pos).into());
+            display.draw_img(r, terrain.color(), &FLAG);
+
+            let text = format!("{}", sz);
+            draw_text(&text, r.center().x + 20., r.center().y - 18., font_size as f32, BLACK);
+          }
+        }
+      }
       // draw terrain highlights
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
