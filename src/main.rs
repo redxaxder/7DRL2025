@@ -808,39 +808,28 @@ impl SimulationState {
     &mut self,
     to: Position,
     tile: Tile,
-    kick: f64, // multiplier on initial (random) velocity
-    decay: f64 // percentage of remaining distance remaining after a second
     ) -> &mut Animation {
+    let origin_pos = self.layout[&HudItem::Tile].center();
     let p = Ref::new(AnimTile {
-      pos: self.layout[&HudItem::Tile].center(),
+      pos: origin_pos,
       tile,
       dead: false
     });
 
     let cr = self.camera_ref.clone();
-    let v: Ref<Vec2> = Ref::new({
-      let mut x: f32 = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
-      x = x.signum() * x.abs().sqrt();
-      let mut y = ((self.rng.next_u32() as i32 % 11) - 5) as f32;
-      y = y.signum() * y.abs().sqrt();
-      kick as f32 * Vec2 { x, y }
-    });
 
     self.flying_tiles.push(p.clone());
 
+    let duration = 0.15;
     self.animations.append(move |time: Time| {
-      let d = decay.powf(time.delta) as f32;
+      let c = time.progress(duration);
       let camera_focus = *cr;
       let target_board = Vec2::from(to - camera_focus);
       let target_screen_pos = DISPLAY_GRID.rect(target_board).center();
-      let offset = p.pos - target_screen_pos;
       unsafe{
         let it = p.get();
-        it.pos = target_screen_pos + d * offset;
-
-        it.pos += *v;
-        *v.get() *= d;
-        it.dead = target_screen_pos.distance(it.pos) < 64.;
+        it.pos = origin_pos * (1. - c) + target_screen_pos * c;
+        it.dead = c >= 1.;
       }
       !p.dead
     })
@@ -1133,8 +1122,7 @@ async fn main() {
           unsafe {
             sim.hud.get().hidden_spaces.insert(target);
           }
-          sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.003
-          ).reserve(target);
+          sim.launch_tile(target, sim.player_current_tile()).reserve(target);
           sim.defer_set_hud(move |hud|{ hud.hidden_spaces.remove(target);} )
             .chain();
           sim.defer_play_sound(PLACE_TILE_SOUND).chain();
