@@ -1,10 +1,17 @@
+- flag number = exp
+- river bridge exception
+- cover art
+- screenshots
+- recording
+- explanation of perfect tiles
+- explanation of tile placement hints
+
+
 + janky quest proximity check
 + low hp danger reminder
 + hide unplaced tiles
 + flash arrow on invalid move
 + [bug] enemies camp out in darkness sometimes
-- explanation of perfect tiles
-- explanation of tile placement hints
 + indicate simulated-but-not-animated travel path
 + don't finish quest if player dies
 + hide hud tile if tile count is zero

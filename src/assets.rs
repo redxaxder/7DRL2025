@@ -39,11 +39,17 @@ pub const SOUNDS_TO_LOAD: &[&'static str] = &[
   "sfx/exp_gain5.wav",
   "sfx/level_up.wav",
   "sfx/place_tile.wav",
+
+  // tile gain
+  "sfx/1360.wav",
+  "sfx/1413.wav",
+  "sfx/1678.wav",
+  "sfx/1782.wav",
 ];
 
 pub const LEVEL_UP_SOUND: &'static str = "sfx/level_up.wav";
 pub const PLACE_TILE_SOUND: &'static str = "sfx/place_tile.wav";
-static mut XP_CYCLE: u64 = 0;
+static mut XP_CYCLE: usize = 0;
 pub fn xp_sound() -> &'static str {
   let i = unsafe { XP_CYCLE += 1; XP_CYCLE % 5};
   ["sfx/exp_gain1.wav",
@@ -53,6 +59,17 @@ pub fn xp_sound() -> &'static str {
     "sfx/exp_gain5.wav",
   ][i as usize]
 }
+
+static mut TILE_CYCLE: usize = 0;
+pub fn tile_sound() -> &'static str {
+  let i = unsafe { TILE_CYCLE += 1; TILE_CYCLE % 4 };
+  ["sfx/1360.wav",
+  "sfx/1413.wav",
+  "sfx/1678.wav",
+  "sfx/1782.wav"
+  ][i as usize]
+}
+
 
 
 

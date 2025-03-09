@@ -493,7 +493,8 @@ impl SimulationState {
     }
     if tile_reward > 0 {
       let to = self.layout[&HudItem::Tile].center();
-      //self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      self.defer_play_sound(tile_sound()).chain();
       self.launch_particle(self.player_pos, to, TILE, GRAY, 3., 0.1).chain();
       self.add_tiles(1).chain();
     }
@@ -1167,6 +1168,7 @@ async fn main() {
                 sim.defer_set_hud(move |hud| {
                   hud.highlighted_spaces.insert(p);
                 });
+                sim.defer_play_sound(tile_sound()).chain();
                 sim.launch_particle(p, to, TILE, SKYBLUE, 0.5, 0.1).chain();
                 sim.add_tiles(1).chain();
                 sim.defer_set_hud(move |hud| {
@@ -1234,6 +1236,7 @@ async fn main() {
                 let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
                 sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
                 sim.animations.append_empty(delay).chain();
+                sim.defer_play_sound(tile_sound()).chain();
                 sim.launch_particle(p, to, TILE, GRAY, 3., 0.1).chain();
                 sim.add_tiles(1).chain();
               }
