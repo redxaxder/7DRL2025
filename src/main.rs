@@ -20,7 +20,7 @@ const REGION_REWARD_THRESHOLD: i64 = 4;
 const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
 
-const STARTING_HP: i64 = 6;
+const STARTING_HP: i64 = 7;
 const STARTING_TILES: i64 = 35;
 
 const DEBUG_IMMORTAL: bool = false;
@@ -45,6 +45,8 @@ struct SimulationState {
   next_quest: Option<Quest>,
   player_tile_transform: D8,
   monster_turns: i64,
+  score_min_hp: i64,
+  score_tiles_placed:  i64,
 
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
@@ -188,6 +190,10 @@ impl SimulationState {
 
       // audio
       sounds: sounds.clone(),
+
+      // score
+      score_min_hp: STARTING_HP,
+      score_tiles_placed: 0,
     };
 
 
@@ -694,6 +700,9 @@ impl SimulationState {
   pub fn add_hp(&mut self, amount: i64) -> &mut Animation {
     let is_damage = amount < 0;
     self.player_hp += amount;
+    if self.player_hp < self.score_min_hp {
+      self.score_min_hp = self.player_hp;
+    }
     let hudref = self.hud.clone();
     let duration = 0.1;
     self.animations.append(move |time| unsafe {
@@ -1124,6 +1133,7 @@ async fn main() {
         // try to place tile
         if sim.board[target] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(target, sim.player_current_tile());
+          sim.score_tiles_placed += 1;
           unsafe {
             sim.hud.get().hidden_spaces.insert(target);
           }
@@ -1775,7 +1785,18 @@ async fn main() {
   if victory {
     clear_background(BLACK);
     loop {
-      draw_text("You win!", 300., 300., 64., WHITE);
+      let score = sim.score_min_hp * sim.score_tiles_placed;
+      let x = 150.;
+      let y = 150.;
+      let f = 64.;
+      let c = WHITE;
+      let you_win_dim = draw_text("You win!", x, y, f, c);
+      let ty = y + you_win_dim.height + you_win_dim.offset_y;
+      let tile_dim = draw_text(&format!("# Tiles Placed : {} ", sim.score_tiles_placed), x, ty, f, c);
+      let hpy = ty + tile_dim.height + tile_dim.offset_y;
+      let hp_dim = draw_text(&format!("Minimum HP : {}", sim.score_min_hp), x, hpy, f, c);
+      let fy = hpy + hp_dim.height + hp_dim.offset_y;
+      draw_text(&format!("Final Score : {}", score), x, fy, f, c);
       next_frame().await;
     }
   }
