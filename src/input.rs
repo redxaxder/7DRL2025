@@ -9,6 +9,7 @@ pub enum Input {
   Rotate2,
   Discard,
   LevelUp,
+  Mute,
 }
 
 static mut INPUT_MAP: &mut [(KeyCode, Input)] = &mut [
@@ -38,6 +39,8 @@ static mut INPUT_MAP: &mut [(KeyCode, Input)] = &mut [
   (KeyCode::Period, Input::Rotate2),
   (KeyCode::Enter, Input::LevelUp),
   (KeyCode::Backspace, Input::Discard),
+
+  (KeyCode::M, Input::Mute),
 ];
 
 pub fn get_input() -> Option<Input> {

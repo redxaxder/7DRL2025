@@ -1007,6 +1007,7 @@ async fn main() {
         continue;
       }
       match input {
+        Input::Mute => bgm.mute(),
         Input::Dir(dir) => {
           inputdir = Some(dir)
         }

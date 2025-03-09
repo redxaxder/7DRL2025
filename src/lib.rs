@@ -459,15 +459,39 @@ impl std::task::Wake for Noop {
 use std::pin::Pin;
 use std::future::Future;
 pub struct BGM {
-  future: Pin<Box<dyn Future<Output = Option<()>>>>,
+  future: Pin<Box<dyn Future<Output = Option<Sound>>>>,
   done: bool,
+  mute: bool,
+  sound: Option<Sound>,
+  volume: f32,
 }
 impl BGM {
-  pub fn init(volume: f32) -> Self {
-    let future = Box::pin(start_bgm(volume));
-    let done = false;
-    Self {future, done}
+  async fn load_bgm(volume: f32) -> Option<Sound> {
+    let path = "bgm/anewdayshurry.wav";
+    let sound = macroquad::audio::load_sound(&path).await.ok()?;
+    macroquad::audio::play_sound(
+      &sound,
+      macroquad::audio::PlaySoundParams {
+        looped: true,
+        volume,
+      }
+    );
+    Some(sound)
   }
+
+  pub fn init(volume: f32) -> Self {
+    let future = Box::pin(Self::load_bgm(volume));
+    let done = false;
+    Self {future, done, volume, mute: false, sound: None}
+  }
+
+  pub fn mute(&mut self) {
+    let Some(ref sound) = self.sound else { return; };
+    self.mute = !self.mute;
+    let v = if self.mute {0.} else {self.volume};
+    macroquad::audio::set_sound_volume(&sound, v);
+  }
+
   pub fn poll(&mut self) {
     if self.done { return; }
 
@@ -475,8 +499,8 @@ impl BGM {
     let waker: std::task::Waker = std::sync::Arc::new(Noop).into();
     let mut ctx = std::task::Context::from_waker(&waker);
     match Future::poll(p, &mut ctx) {
-        std::task::Poll::Ready(o) => {
-          debug!("load success? {}", o.is_some());
+        std::task::Poll::Ready(sound) => {
+          self.sound = sound;
           self.done = true
         }
         _ => {}
