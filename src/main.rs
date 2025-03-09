@@ -1020,6 +1020,7 @@ async fn main() {
             sim.add_xp(-sim.player_xp_next());
             sim.player_hp_max += 1;
             let to = sim.layout[&HudItem::Hp].center();
+            sim.defer_play_sound(LEVEL_UP_SOUND);
             sim.launch_particle(sim.player_pos, to,
               HEART, RED,
               3., 0.02
@@ -1249,6 +1250,7 @@ async fn main() {
           sim.prizes.remove(target);
           let to = sim.layout[&HudItem::Hp].center();
           sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
+          sim.defer_play_sound(LEVEL_UP_SOUND).chain();
           sim.launch_particle(target, to,
             prize_img(prize), RED,
             3., 0.02
