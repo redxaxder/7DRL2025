@@ -4,7 +4,7 @@ use rl2025::*;
 use std::rc::Rc;
 use rl2025::tiles::boss_lair;
 use footguns::Ref;
-use macroquad::audio::{load_sound_from_bytes, play_sound_once, Sound};
+use macroquad::audio::{load_sound_from_bytes, Sound};
 
 type Path = &'static str;
 type RegionId = u16;
@@ -248,7 +248,7 @@ impl SimulationState {
   pub fn defer_play_sound(&mut self, soundpath: Path) -> &mut Animation {
     let sound = self.sounds[soundpath].clone();
     self.animations.append(move |_| {
-      play_sound_once(&sound);
+      play_sound(sound.clone());
       false
     })
   }
@@ -1130,9 +1130,10 @@ async fn main() {
             sim.hud.get().hidden_spaces.insert(target);
           }
           sim.launch_tile(target, sim.player_current_tile(), 1.0, 0.003
-          ).require(target);
+          ).reserve(target);
           sim.defer_set_hud(move |hud|{ hud.hidden_spaces.remove(target);} )
             .chain();
+          sim.defer_play_sound(PLACE_TILE_SOUND).chain();
           tile_compat = sim.next_tile();
           tile_placed = true;
           // new tiles smoosh monsters
@@ -1740,6 +1741,7 @@ async fn main() {
     }
 
     sim.compass_flash -= get_frame_time();
+    decay_sounds(get_frame_time());
     next_frame().await;
 
     if victory && sim.animations.len() == 0 {

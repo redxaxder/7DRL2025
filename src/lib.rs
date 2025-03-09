@@ -389,3 +389,55 @@ pub fn torus_max_norm(bounds: IRect, v: IVec) -> i16 {
   let x = (w.x - bounds.x).min(bounds.x + bounds.width - w.x);
   x.max(y)
 }
+
+
+use std::collections::VecDeque;
+use macroquad::audio::Sound;
+use std::rc::Rc;
+
+
+const MAX_VOLUME: f32 = 2.0;
+// assumed rate at which sounds stop playing
+// lower value = allow more new sounds to play loud sooner
+const VOLUME_DECAY: f32 = 0.05;
+struct SoundQueue{
+  q: VecDeque<Rc<Sound>>,
+  volume: f32,
+
+}
+impl SoundQueue {
+  const fn new() -> Self {
+    Self { q: VecDeque::new(), volume: 0. }
+  }
+
+  fn decay(&mut self, time: f32) {
+    self.volume *= VOLUME_DECAY.powf(time);
+  }
+}
+
+
+static mut SOUND_QUEUE: SoundQueue = SoundQueue::new();
+
+pub fn decay_sounds(time: f32) {
+  unsafe {
+    SOUND_QUEUE.decay(time)
+  }
+}
+
+pub fn play_sound(sound: Rc<Sound>) {
+  unsafe {
+  let playing_volume = SOUND_QUEUE.volume;
+  let remaining_volume = MAX_VOLUME - playing_volume;
+  let volume = 1.0_f32.min(remaining_volume * 0.5);
+  SOUND_QUEUE.volume += volume;
+  macroquad::audio::play_sound(
+    &sound,
+    macroquad::audio::PlaySoundParams {
+      looped: false,
+      volume,
+    }
+  );
+  }
+}
+
+

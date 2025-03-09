@@ -40,6 +40,8 @@ pub const SOUNDS_TO_LOAD: &[&'static str] = &[
   "sfx/place_tile.wav",
 ];
 
+pub const LEVEL_UP_SOUND: &'static str = "sfx/level_up.wav";
+pub const PLACE_TILE_SOUND: &'static str = "sfx/place_tile.wav";
 static mut XP_CYCLE: u64 = 0;
 pub fn xp_sound() -> &'static str {
   let i = unsafe { XP_CYCLE += 1; XP_CYCLE % 5};
