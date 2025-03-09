@@ -30,6 +30,29 @@ pub const LOAD_ME: &[&'static str] = &[
   "path.png",
 ];
 
+pub const SOUNDS_TO_LOAD: &[&'static str] = &[
+  "sfx/exp_gain1.wav",
+  "sfx/exp_gain2.wav",
+  "sfx/exp_gain3.wav",
+  "sfx/exp_gain4.wav",
+  "sfx/exp_gain5.wav",
+  "sfx/level_up.wav",
+  "sfx/place_tile.wav",
+];
+
+static mut XP_CYCLE: u64 = 0;
+pub fn xp_sound() -> &'static str {
+  let i = unsafe { XP_CYCLE += 1; XP_CYCLE % 5};
+  ["sfx/exp_gain1.wav",
+    "sfx/exp_gain2.wav",
+    "sfx/exp_gain3.wav",
+    "sfx/exp_gain4.wav",
+    "sfx/exp_gain5.wav",
+  ][i as usize]
+}
+
+
+
 pub const fn def(path: &'static str) -> Img {
   Img { path,
     rect: Rect{x: 0., y: 0., w: 128., h: 128. },

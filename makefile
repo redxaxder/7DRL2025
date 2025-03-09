@@ -19,6 +19,8 @@ output/release: target/wasm32-unknown-unknown/release/rl2025.wasm www
 	@cp target/wasm32-unknown-unknown/release/rl2025.wasm output
 	@touch output/release
 
+debug: output/debug
+
 release: output/release
 
 deploy: release

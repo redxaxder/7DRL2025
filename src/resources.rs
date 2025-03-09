@@ -14,9 +14,11 @@ pub struct Resources {
 impl Resources {
   pub fn new(assets: Dir<'static>) -> Self {
     Resources {
-      assets, textures: HashMap::new()
+      assets,
+      textures: HashMap::new(),
     }
   }
+
 
   pub fn load_texture(
     &mut self,

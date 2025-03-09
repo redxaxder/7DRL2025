@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
 use rl2025::*;
+use std::rc::Rc;
 use rl2025::tiles::boss_lair;
 use footguns::Ref;
+use macroquad::audio::{load_sound_from_bytes, play_sound_once, Sound};
 
+type Path = &'static str;
 type RegionId = u16;
 
 // each turn, every void space produces a spawn point
@@ -78,6 +81,10 @@ struct SimulationState {
 
   // record where stuff gets drawn in ui
   layout: Map<HudItem, Rect>,
+
+
+  // Audio
+  sounds: Map<Path, Rc<Sound>>,
 }
 
 pub struct Hud {
@@ -138,7 +145,7 @@ pub struct AnimTile {
 }
 
 impl SimulationState {
-  pub fn new(display: &Display) -> Self {
+  pub fn new(sounds: &Map<Path, Rc<Sound>>) -> Self {
     let mut sim = SimulationState {
       player_pos: IVec::ONE,
       player_hp: STARTING_HP,
@@ -178,6 +185,9 @@ impl SimulationState {
       compass_flash: 0.,
 
       layout: Map::new(),
+
+      // audio
+      sounds: sounds.clone(),
     };
 
 
@@ -231,6 +241,14 @@ impl SimulationState {
     let hudref = self.hud.clone();
     self.animations.append(move |_| unsafe {
       (f)(hudref.get());
+      false
+    })
+  }
+
+  pub fn defer_play_sound(&mut self, soundpath: Path) -> &mut Animation {
+    let sound = self.sounds[soundpath].clone();
+    self.animations.append(move |_| {
+      play_sound_once(&sound);
       false
     })
   }
@@ -456,6 +474,14 @@ impl SimulationState {
     let tile_reward = if size > REGION_REWARD_THRESHOLD { 1 } else { 0 };
     if xp_reward > 0 {
       let to = self.layout[&HudItem::Xp].center();
+
+      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      for _i in 0..3 {
+        let delay = 0.15;
+        self.defer_play_sound(xp_sound()).chain();
+        self.animations.append_empty(delay).chain();
+      }
+
       for i in 0..xp_reward {
         let delay = i as f64 * 0.15;
         self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
@@ -627,7 +653,12 @@ impl SimulationState {
     velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
     velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
     velocity *= 8.;
-    self.animate_unit_fling(id, at.into(), velocity, 0.2).require(id);
+    self.animations.append_empty(0.).reserve(
+      [id, PLAYER_UNIT_ID]
+    ).reserve(at);
+    self.defer_play_sound(xp_sound()).chain();
+    self.animate_unit_fling(id, at.into(), velocity, 0.2)
+      .require(id);
     self.add_hp(-1).require(id);
     self.animations.append(empty_animation)
       .require([id, PLAYER_UNIT_ID]);
@@ -866,6 +897,7 @@ impl SimulationState {
     let from = self.player_pos;
     self.player_pos = to;
     self.hud.desire_path.push(to);
+
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), BASE_ANIMATION_DURATION.into())
       .reserve([from,to])
       .reserve(PLAYER_UNIT_ID);
@@ -930,11 +962,26 @@ async fn main() {
 
   let mut resources = Resources::new(ASSETS);
   for path in LOAD_ME { resources.load_texture(path, FilterMode::Linear); }
+  //load_sounds(&mut resources).await;
+
+  let sounds: Map<Path, Rc<Sound>> = {
+    let mut result = Map::new();
+    for &path in SOUNDS_TO_LOAD {
+      let file = ASSETS.get_file(path).expect(&format!("missing {}", path));
+      let s: Sound = load_sound_from_bytes(file.contents())
+        .await
+        .expect(&format!("cant load {}", path));
+        result.insert(path, Rc::new(s));
+    }
+    result
+  };
+
+
 
   let display_dim: Vec2 = DISPLAY_GRID.dim();
   let mut display = Display::new(resources, display_dim);
 
-  let mut sim = SimulationState::new(&display);
+  let mut sim = SimulationState::new(&sounds);
 
   let mut victory = false;
   let mut debug_draw = false;
@@ -948,7 +995,7 @@ async fn main() {
 
     if let Some(input) = get_input() {
       if sim.hud.defeat {
-        sim = SimulationState::new(&display);
+        sim = SimulationState::new(&sounds);
         next_frame().await;
         continue;
       }
@@ -1002,7 +1049,8 @@ async fn main() {
           while sim.num_bosses > 1 {
             let id = sim.enemies.get(target).unwrap().id;
             delay += BASE_ANIMATION_DURATION/speed_mul;
-            sim.animations.append_empty(delay).reserve(id);
+            sim.animations.append_empty(delay)
+              .reserve(id);
             sim.slay_enemy(target, playermove);
             sim.num_bosses -= 1;
             sim.defer_set_hud(|hud| hud.bosses -= 1).reserve(id);
@@ -1727,7 +1775,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board, &mut sim.rng);
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board);
   debug!("forest dirs {:?} for {:?}", valid, sim.enemies[pos]);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
@@ -1788,7 +1836,7 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
   select_candidate(candidates, sim)
 }
 
-pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>, rng: &mut Rng) -> Vec<Dir4> {
+pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
   // right up left down (matching dir4.index)
   let mut candidates: Vec<Dir4> = Vec::new();
   let tile: Tile = board[*pos];
