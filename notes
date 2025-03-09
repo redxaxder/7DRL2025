@@ -87,7 +87,7 @@ v0.3 "qol"
    + flees other monsters, default random
  + animate movement
  - art:
-   - player
+   + player
    - monsters
    + quest scroll
    + terrain
@@ -105,7 +105,7 @@ v0.3 "qol"
      + hp
      + quest heal item
      + monster turns
- - sounds?
+ + sounds?
  - music?
  + indicate off-map monsters (red eyes?)
  - click to move / place tile
