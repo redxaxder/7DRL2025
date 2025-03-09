@@ -1,6 +1,8 @@
 
+use std::rc::Rc;
 use std::collections::HashMap;
 use crate::*;
+use macroquad::audio::{Sound, load_sound_from_bytes};
 use include_dir::Dir;
 
 type Path = &'static str;
@@ -9,13 +11,30 @@ type Path = &'static str;
 pub struct Resources {
   pub assets: Dir<'static>,
   pub textures: HashMap<Path, Texture2D>,
+  pub sounds: HashMap<Path, Rc<Sound>>,
 }
 
 impl Resources {
   pub fn new(assets: Dir<'static>) -> Self {
     Resources {
-      assets, textures: HashMap::new()
+      assets,
+      textures: HashMap::new(),
+      sounds: HashMap::new(),
     }
+  }
+
+  pub async fn load_sound(&mut self, path: Path) {
+    if !self.sounds.contains_key(path) {
+      let file = self.assets.get_file(path).expect(&format!("missing {}", path));
+      let s: Sound = load_sound_from_bytes(file.contents())
+        .await
+        .expect(&format!("cant load {}", path));
+      self.sounds.insert(path, Rc::new(s));
+    }
+  }
+
+  pub fn get_sound(&self, path: Path) -> Rc<Sound> {
+    self.sounds[path].clone()
   }
 
   pub fn load_texture(

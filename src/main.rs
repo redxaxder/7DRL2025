@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
 use rl2025::*;
+use std::rc::Rc;
 use rl2025::tiles::boss_lair;
 use footguns::Ref;
+use macroquad::audio::{Sound, play_sound_once};
 
 type RegionId = u16;
 
@@ -138,7 +140,7 @@ pub struct AnimTile {
 }
 
 impl SimulationState {
-  pub fn new(display: &Display) -> Self {
+  pub fn new() -> Self {
     let mut sim = SimulationState {
       player_pos: IVec::ONE,
       player_hp: STARTING_HP,
@@ -231,6 +233,13 @@ impl SimulationState {
     let hudref = self.hud.clone();
     self.animations.append(move |_| unsafe {
       (f)(hudref.get());
+      false
+    })
+  }
+
+  pub fn defer_play_sound(&mut self, sound: Rc<Sound>) -> &mut Animation {
+    self.animations.append(move |_| {
+      play_sound_once(&sound);
       false
     })
   }
@@ -866,6 +875,7 @@ impl SimulationState {
     let from = self.player_pos;
     self.player_pos = to;
     self.hud.desire_path.push(to);
+
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), BASE_ANIMATION_DURATION.into())
       .reserve([from,to])
       .reserve(PLAYER_UNIT_ID);
@@ -930,11 +940,12 @@ async fn main() {
 
   let mut resources = Resources::new(ASSETS);
   for path in LOAD_ME { resources.load_texture(path, FilterMode::Linear); }
+  load_sounds(&mut resources).await;
 
   let display_dim: Vec2 = DISPLAY_GRID.dim();
   let mut display = Display::new(resources, display_dim);
 
-  let mut sim = SimulationState::new(&display);
+  let mut sim = SimulationState::new();
 
   let mut victory = false;
   let mut debug_draw = false;
@@ -948,7 +959,7 @@ async fn main() {
 
     if let Some(input) = get_input() {
       if sim.hud.defeat {
-        sim = SimulationState::new(&display);
+        sim = SimulationState::new();
         next_frame().await;
         continue;
       }
@@ -1165,6 +1176,12 @@ async fn main() {
 
         // clear monster alerts
         sim.set_enemy_alerts(false);
+        let sound = display.resources.get_sound("example.wav");
+        let ppos = sim.player_pos;
+        sim.defer_play_sound(sound)
+          .reserve(PLAYER_UNIT_ID)
+          .reserve(ppos)
+          .reserve(target);
         sim.move_player(target);
         player_moved = true;
         //debug!("player: {:?}", sim.player_pos);
@@ -1727,7 +1744,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board, &mut sim.rng);
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board);
   debug!("forest dirs {:?} for {:?}", valid, sim.enemies[pos]);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
@@ -1788,7 +1805,7 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
   select_candidate(candidates, sim)
 }
 
-pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>, rng: &mut Rng) -> Vec<Dir4> {
+pub fn forest_edges(pos: &Position, board: &Buffer2D<Tile>) -> Vec<Dir4> {
   // right up left down (matching dir4.index)
   let mut candidates: Vec<Dir4> = Vec::new();
   let tile: Tile = board[*pos];

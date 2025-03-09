@@ -30,6 +30,18 @@ pub const LOAD_ME: &[&'static str] = &[
   "path.png",
 ];
 
+
+pub async fn load_sounds(res: &mut Resources) {
+  pub const SOUNDS_TO_LOAD: &[&'static str] = &[
+    "example.wav"
+  ];
+  for path in SOUNDS_TO_LOAD {
+    res.load_sound(path).await;
+  }
+}
+
+
+
 pub const fn def(path: &'static str) -> Img {
   Img { path,
     rect: Rect{x: 0., y: 0., w: 128., h: 128. },
