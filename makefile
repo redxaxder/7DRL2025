@@ -26,4 +26,4 @@ debug: output/debug
 release: output/release
 
 deploy: release
-	butler push output redxaxder/7drl2025:html5
+	butler push output redxaxder/tilers-adventure:html5

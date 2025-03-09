@@ -97,6 +97,7 @@ pub struct Hud {
   pub tiles: i64,
   pub turns: i64,
   pub defeat: bool,
+  pub victory: bool,
   pub bosses: usize,
   pub tile_rotation: f32,
   pub tile_transform: D8,
@@ -114,6 +115,7 @@ impl Hud {
       tiles: STARTING_TILES,
       turns: 0,
       defeat: false,
+      victory: false,
       bosses: NUM_BOSSES,
       tile_rotation: 0.,
       tile_transform: D8::E,
@@ -988,7 +990,6 @@ async fn main() {
 
   let mut sim = SimulationState::new(&sounds);
 
-  let mut victory = false;
   let mut debug_draw = false;
 
   loop {
@@ -1001,7 +1002,7 @@ async fn main() {
     let mut inputdir: Option<Dir4> = None;
 
     if let Some(input) = get_input() {
-      if sim.hud.defeat {
+      if sim.hud.defeat || sim.hud.victory {
         sim = SimulationState::new(&sounds);
         next_frame().await;
         continue;
@@ -1099,7 +1100,10 @@ async fn main() {
               break;
             }
           }
-          victory = defeated_boss && !sim.player_dead();
+
+          let won = defeated_boss && !sim.player_dead();
+          sim.animations.sync();
+          sim.defer_set_hud(move |hud| hud.victory = won).chain();
         } else { // nobody in this spot to fight
           needs_road = true;
         }
@@ -1750,9 +1754,33 @@ async fn main() {
           display.draw_tile(r, t.tile, 0.);
         }
       }
-
-
     }
+
+    if sim.hud.victory {
+      clear_background(BLACK);
+      let score = sim.score_min_hp * sim.score_tiles_placed;
+      let mut y = 300.;
+      let margin = 15.;
+      let font_size = 64;
+      let color = WHITE;
+      let mut i = 0;
+      for text in &[
+        "Victory!",
+        &format!("Tiles Placed {} ", sim.score_tiles_placed),
+        &format!("Minimum HP {}", sim.score_min_hp),
+        &format!("Final Score {}", score),
+      ] {
+        let metrics = measure_text(text, None, font_size, 1.);
+        let x = 0.5 * (display.dim.x - metrics.width);
+        draw_text(text, x, y, font_size as f32, color);
+        if i == 0 {
+          y += margin * 2.;
+          i += 1;
+        }
+        y += metrics.height + margin;
+      }
+    }
+
 
     { // Copy the display to the screen
       set_default_camera();
@@ -1778,29 +1806,8 @@ async fn main() {
     decay_sounds(get_frame_time());
     next_frame().await;
 
-    if victory && sim.animations.len() == 0 {
-      break;
-    }
   }
 
-  if victory {
-    clear_background(BLACK);
-    loop {
-      let score = sim.score_min_hp * sim.score_tiles_placed;
-      let x = 150.;
-      let y = 150.;
-      let f = 64.;
-      let c = WHITE;
-      let you_win_dim = draw_text("You win!", x, y, f, c);
-      let ty = y + you_win_dim.height + you_win_dim.offset_y;
-      let tile_dim = draw_text(&format!("# Tiles Placed : {} ", sim.score_tiles_placed), x, ty, f, c);
-      let hpy = ty + tile_dim.height + tile_dim.offset_y;
-      let hp_dim = draw_text(&format!("Minimum HP : {}", sim.score_min_hp), x, hpy, f, c);
-      let fy = hpy + hp_dim.height + hp_dim.offset_y;
-      draw_text(&format!("Final Score : {}", score), x, fy, f, c);
-      next_frame().await;
-    }
-  }
 }
 
 fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) -> Option<Position> {
