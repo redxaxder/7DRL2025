@@ -16,7 +16,7 @@ const MONSTER_SPAWN_POINTS: i64 = 30;
 const QUEST_SPAWN_CHANCE: u64 = 83; // units are 1/10 percent, roughly once in 12 tiles
 const QUEST_MIN: u64 = 3;
 const FOREST_ESCAPE_CHANCE: u64 = 250;
-const REGION_REWARD_THRESHOLD: usize = 4;
+const REGION_REWARD_THRESHOLD: i64 = 4;
 const NUM_BOSSES: usize = 15;
 const QUEST_REWARD: i64 = 5;
 
@@ -48,7 +48,7 @@ struct SimulationState {
 
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
-  region_sizes: Map<RegionId, usize>,
+  region_sizes: Map<RegionId, i64>,
   // the subposition of the first tile in this region
   region_start: Map<RegionId, Subposition>,
   next_region_id: RegionId,
