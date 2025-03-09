@@ -400,13 +400,12 @@ const MAX_VOLUME: f32 = 2.0;
 // lower value = allow more new sounds to play loud sooner
 const VOLUME_DECAY: f32 = 0.05;
 struct SoundQueue{
-  q: VecDeque<Rc<Sound>>,
   volume: f32,
 
 }
 impl SoundQueue {
   const fn new() -> Self {
-    Self { q: VecDeque::new(), volume: 0. }
+    Self { volume: 0. }
   }
 
   fn decay(&mut self, time: f32) {
@@ -440,12 +439,9 @@ pub fn play_sound(sound: Rc<Sound>) {
 }
 
 
-async fn start_bgm(volume: f32) {
+async fn start_bgm(volume: f32) -> Option<()> {
   let path = "bgm/anewdayshurry.wav";
-  let file = ASSETS.get_file(path).expect(&format!("missing {}", path));
-  let sound: Sound = macroquad::audio::load_sound_from_bytes(file.contents())
-    .await
-    .expect(&format!("cant load {}", path));
+  let sound: Sound = macroquad::audio::load_sound(&path).await.ok()?;
   macroquad::audio::play_sound(
     &sound,
     macroquad::audio::PlaySoundParams {
@@ -453,6 +449,7 @@ async fn start_bgm(volume: f32) {
       volume,
     }
   );
+  Some(())
 }
 
 struct Noop;
@@ -463,7 +460,7 @@ impl std::task::Wake for Noop {
 use std::pin::Pin;
 use std::future::Future;
 pub struct BGM {
-  future: Pin<Box<dyn Future<Output = ()>>>,
+  future: Pin<Box<dyn Future<Output = Option<()>>>>,
   done: bool,
 }
 impl BGM {
@@ -479,7 +476,8 @@ impl BGM {
     let waker: std::task::Waker = std::sync::Arc::new(Noop).into();
     let mut ctx = std::task::Context::from_waker(&waker);
     match Future::poll(p, &mut ctx) {
-        std::task::Poll::Ready(_) => {
+        std::task::Poll::Ready(o) => {
+          debug!("load success? {}", o.is_some());
           self.done = true
         }
         _ => {}

@@ -9,6 +9,7 @@ output/debug: target/wasm32-unknown-unknown/debug/rl2025.wasm www
 	@rm -rf output
 	@mkdir output
 	@cp www/* output
+	@cp -r bgm output
 	@cp target/wasm32-unknown-unknown/debug/rl2025.wasm output
 
 
@@ -16,6 +17,7 @@ output/release: target/wasm32-unknown-unknown/release/rl2025.wasm www
 	@rm -rf output
 	@mkdir output
 	@cp www/* output
+	@cp -r bgm output
 	@cp target/wasm32-unknown-unknown/release/rl2025.wasm output
 	@touch output/release
 

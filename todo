@@ -1,13 +1,15 @@
-- flag number = exp
 - river bridge exception
-- music
 - cover art
 - screenshots
 - recording
 - explanation of perfect tiles
 - explanation of tile placement hints
+- summary statistics on victory screen?
 
 
+
++ flag number = exp
++ music
 + janky quest proximity check
 + low hp danger reminder
 + hide unplaced tiles

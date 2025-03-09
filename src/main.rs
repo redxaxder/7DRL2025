@@ -495,7 +495,7 @@ impl SimulationState {
       let to = self.layout[&HudItem::Tile].center();
       self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       self.defer_play_sound(tile_sound()).chain();
-      self.launch_particle(self.player_pos, to, TILE, GRAY, 3., 0.1).chain();
+      self.launch_particle(self.player_pos, to, TILE, SKYBLUE, 3., 0.1).chain();
       self.add_tiles(1).chain();
     }
   }
@@ -1384,11 +1384,15 @@ async fn main() {
       }
       // draw region hints
       for rid in &sim.open_regions {
-        let font_size = 45;
+        let font_size = 40;
         if let Some(sz) = sim.region_sizes.get(&rid) {
           if *sz >= REGION_REWARD_THRESHOLD {
             let (pos, dir) = sim.region_start.get(&rid).unwrap();
             let terrain = sim.board[*pos].contents[dir.index()];
+            let mut xp = *sz - REGION_REWARD_THRESHOLD;
+            if terrain == Terrain::Town {
+              xp = *sz - 1
+            };
             let mut r = display.pos_rect((*pos).into());
             let mut offset = 64 * IVec::from(*dir);
             offset.y *= -1; // screen vs map coordinate shenanigans
