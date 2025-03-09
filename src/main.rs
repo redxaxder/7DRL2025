@@ -1248,7 +1248,7 @@ async fn main() {
                 sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
                 sim.animations.append_empty(delay).chain();
                 sim.defer_play_sound(tile_sound()).chain();
-                sim.launch_particle(p, to, TILE, GRAY, 3., 0.1).chain();
+                sim.launch_particle(p, to, TILE, SKYBLUE, 3., 0.1).chain();
                 sim.add_tiles(1).chain();
               }
             }
