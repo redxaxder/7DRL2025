@@ -417,6 +417,7 @@ static mut SOUND_QUEUE: SoundQueue = SoundQueue::new();
 
 pub fn decay_sounds(time: f32) {
   unsafe {
+    #[allow(static_mut_refs)]
     SOUND_QUEUE.decay(time)
   }
 }
@@ -437,19 +438,6 @@ pub fn play_sound(sound: Rc<Sound>) {
   }
 }
 
-
-async fn start_bgm(volume: f32) -> Option<()> {
-  let path = "bgm/anewdayshurry.wav";
-  let sound: Sound = macroquad::audio::load_sound(&path).await.ok()?;
-  macroquad::audio::play_sound(
-    &sound,
-    macroquad::audio::PlaySoundParams {
-      looped: true,
-      volume,
-    }
-  );
-  Some(())
-}
 
 struct Noop;
 impl std::task::Wake for Noop {
