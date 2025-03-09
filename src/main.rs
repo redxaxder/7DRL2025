@@ -1385,6 +1385,9 @@ async fn main() {
             let (pos, dir) = sim.region_start.get(&rid).unwrap();
             let terrain = sim.board[*pos].contents[dir.index()];
             let mut r = display.pos_rect((*pos).into());
+            let mut offset = 64 * IVec::from(*dir);
+            offset.y *= -1; // screen vs map coordinate shenanigans
+            r = r.offset(offset.into());
             display.draw_img(r, terrain.color(), &FLAG);
 
             let text = format!("{}", sz);
