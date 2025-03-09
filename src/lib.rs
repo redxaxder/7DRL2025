@@ -10,7 +10,6 @@ pub const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
 
 pub const INVISIBLE: Color = Color{r:0.,g:0.,b:0.,a:0.};
 
-
 pub mod display;
 pub use display::*;
 
@@ -426,18 +425,65 @@ pub fn decay_sounds(time: f32) {
 
 pub fn play_sound(sound: Rc<Sound>) {
   unsafe {
-  let playing_volume = SOUND_QUEUE.volume;
-  let remaining_volume = MAX_VOLUME - playing_volume;
-  let volume = 1.0_f32.min(remaining_volume * 0.5);
-  SOUND_QUEUE.volume += volume;
-  macroquad::audio::play_sound(
-    &sound,
-    macroquad::audio::PlaySoundParams {
-      looped: false,
-      volume,
-    }
-  );
+    let playing_volume = SOUND_QUEUE.volume;
+    let remaining_volume = MAX_VOLUME - playing_volume;
+    let volume = 1.0_f32.min(remaining_volume * 0.5);
+    SOUND_QUEUE.volume += volume;
+    macroquad::audio::play_sound(
+      &sound,
+      macroquad::audio::PlaySoundParams {
+        looped: false,
+        volume,
+      }
+    );
   }
 }
 
+
+async fn start_bgm(volume: f32) {
+  let path = "bgm/anewdayshurry.wav";
+  let file = ASSETS.get_file(path).expect(&format!("missing {}", path));
+  let sound: Sound = macroquad::audio::load_sound_from_bytes(file.contents())
+    .await
+    .expect(&format!("cant load {}", path));
+  macroquad::audio::play_sound(
+    &sound,
+    macroquad::audio::PlaySoundParams {
+      looped: true,
+      volume,
+    }
+  );
+}
+
+struct Noop;
+impl std::task::Wake for Noop {
+    fn wake(self: std::sync::Arc<Self>) {}
+}
+
+use std::pin::Pin;
+use std::future::Future;
+pub struct BGM {
+  future: Pin<Box<dyn Future<Output = ()>>>,
+  done: bool,
+}
+impl BGM {
+  pub fn init(volume: f32) -> Self {
+    let future = Box::pin(start_bgm(volume));
+    let done = false;
+    Self {future, done}
+  }
+  pub fn poll(&mut self) {
+    if self.done { return; }
+
+    let p = Pin::as_mut(&mut self.future);
+    let waker: std::task::Waker = std::sync::Arc::new(Noop).into();
+    let mut ctx = std::task::Context::from_waker(&waker);
+    match Future::poll(p, &mut ctx) {
+        std::task::Poll::Ready(_) => {
+          self.done = true
+        }
+        _ => {}
+    }
+  }
+}
 

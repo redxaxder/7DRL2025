@@ -976,7 +976,8 @@ async fn main() {
     }
     result
   };
-
+  let volume = 0.3;
+  let mut bgm = BGM::init(volume);
 
 
   let display_dim: Vec2 = DISPLAY_GRID.dim();
@@ -988,6 +989,8 @@ async fn main() {
   let mut debug_draw = false;
 
   loop {
+    bgm.poll();
+
     if get_keys_pressed().len() > 0 {
       sim.animations.hurry(2.);
     }
@@ -1047,10 +1050,9 @@ async fn main() {
         let mut defeated_boss = false;
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = sim.enemies.get(target) {
           let mut speed_mul: f64 = 1.;
-          let mut delay = 0.;
           while sim.num_bosses > 1 {
             let id = sim.enemies.get(target).unwrap().id;
-            delay = BASE_ANIMATION_DURATION/speed_mul;
+            let delay = BASE_ANIMATION_DURATION/speed_mul;
             sim.animations.append_empty(delay)
               .reserve(id);
             sim.slay_enemy(target, playermove);
