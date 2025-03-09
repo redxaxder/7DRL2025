@@ -390,7 +390,6 @@ pub fn torus_max_norm(bounds: IRect, v: IVec) -> i16 {
 }
 
 
-use std::collections::VecDeque;
 use macroquad::audio::Sound;
 use std::rc::Rc;
 

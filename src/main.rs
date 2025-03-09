@@ -331,7 +331,12 @@ impl SimulationState {
       for i in 0..4 { // find the greatest region id among matching neighbors
         let (np, nd) = neighbors[i];
         // the opposite is not considered adajcent if the center terrain doesn't match
-        if i == 0 && self.board[p].contents[4] != t0 { continue; }
+        // UNLESS this is river terrain
+        if i == 0
+          && self.board[p].contents[4] != t0
+          && t0 != Terrain::River {
+            continue;
+        }
         let t1 = self.board[np].contents[nd.index()];
         if t1 != t0 { continue; }
         let rid1 = self.regions[np][nd.index()];
