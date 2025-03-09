@@ -1387,7 +1387,7 @@ async fn main() {
             r = r.offset(offset.into());
             display.draw_img(r, terrain.color(), &FLAG);
 
-            let text = format!("{}", sz);
+            let text = format!("{}", xp);
             draw_text(&text, r.center().x + 20., r.center().y - 18., font_size as f32, BLACK);
           }
         }
