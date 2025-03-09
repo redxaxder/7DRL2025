@@ -719,7 +719,7 @@ impl SimulationState {
     } else if unit_id == PLAYER_UNIT_ID {
       let rgr = Ref::new(Ragdoll {
         pos: self.player_relative_coordinates(Vec2::from(self.player_pos)),
-        color: WHITE,
+        color: LIGHTGRAY,
         img: HERO,
         dead: false,
       });
