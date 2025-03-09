@@ -1048,7 +1048,7 @@ async fn main() {
           let mut delay = 0.;
           while sim.num_bosses > 1 {
             let id = sim.enemies.get(target).unwrap().id;
-            delay += BASE_ANIMATION_DURATION/speed_mul;
+            delay = BASE_ANIMATION_DURATION/speed_mul;
             sim.animations.append_empty(delay)
               .reserve(id);
             sim.slay_enemy(target, playermove);
