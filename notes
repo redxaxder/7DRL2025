@@ -1,3 +1,94 @@
+polishing
+ - undo
+   - ux
+     - undo icon
+   - behavior
+     - clear ongoing animations
+     - instantly snap to previous state
+     - non-destructive actions (ie alter setting, rotate tile) are exempt
+     - some actions are irrevokable: they blow up undo history
+       - placing a tile
+       - discarding a tile
+       - any action with 0 tiles left (enemies may spawn)
+     - undoing fights is legit. even player-lethal ones.
+   - implementation
+     - stack of states
+       - enemy array snapshot + step sequence
+       - Vec< (snapshot, Vec<PlayerPos>) >
+     - things that affect state other than player pos push a snapshot to outer vec
+     - moving pushes onto the inner vec
+     - undo tries to pop from the inner vec and put player on previous pos
+       if inner vec is empty, pop from outer vec and restore
+ - tile placement option: [quick | safe]
+   - quick: as exists
+   - safe:
+     - if canceled, animate tile back into your 'hand'
+     - undo to cancel (backspace)
+     - enter to confirm
+   - this option also covers discards
+     - animate throwing a tile away
+ - mouse controls
+   - click/touch on a space to move there
+     counts as a single input for undo purposes
+     auto pathing is naive about rivers and enemies (they can undo anyway!)
+   - for dark spaces, place a tile there
+   - for enemies, fight them from the nearest position
+   - buttons:
+     - rotate (counter)clockwise
+     - trash can
+     - confirm
+     - undo
+     - level up (button hidden when not available?)
+ - map panning?
+   - drag to pan
+ - touch controls
+   aiming for phones? yes-ish. depends on if we can figure out good touch ux
+ - music
+   - 2-3 tracks:
+     - title screen
+     - longish gameplay track
+     - 0 tile track
+ - broken tile feedback (audio, visual)
+ - broken tile overlay
+ - a build with live asset reloading
+ - support for other image resolutions
+ - smaller world? (40x40 -> 20x20?)
+   - uneven dimensions? 10x20? 5x40?
+ - modes with different starting hp?
+   - in-game difficulty setting that changes your max hp, but only if
+     your hp hasn't gotten too low
+ - score memory
+ - modify scoring rule
+   - current: min hp over game * tiles placed
+   - + exp gained
+   - + number of bonus tiles gained
+ - multiple tile distributions?
+   - 1 terrain is missing
+   - only curvy rivers/roads
+   - only straight rivers/roars
+   - change the rank of terrain(s) (see examples and TABLE in tiles.rs)
+     - flat-ish bias
+ - daily challenge runs?
+   - daily seed
+ - online scores
+ - friend scores?
+ - BUG when we run out of tiles, placement hints for the next tile are shown
+ - draw shroud
+   - shroud is animated (shader effect)
+ - visual spice for out of tiles
+   - animate agitated shroud (shader effect)
+ - code cleanup
+   - UI state/game state/undo state separation
+   - chunk the logic in main more cleanly
+   - lot of functions in main.rs that should live elsewhere
+
+
+
+
+
+
+
+
 + v0.1 "scaffold"
  + terrain with no special behavior
  + player moves
@@ -517,3 +608,7 @@ detritus retry?
 
 x-com roguelike
   - squad of ~6
+
+
+
+

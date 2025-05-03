@@ -8,11 +8,9 @@ pub const LOAD_ME: &[&'static str] = &[
   "terrain_placeholder.png",
   "terrain_grass.png",
   "terrain_forest.png",
-  "npc.png",
   "nme1.png",
   "nme2.png",
   "nme3.png",
-  "nme4.png",
   "nme_unknown.png",
   "xp.png",
   "time.png",
@@ -23,7 +21,6 @@ pub const LOAD_ME: &[&'static str] = &[
   "road16.png",
   "town16.png",
   "scroll.png",
-  "blocked.png",
   "river16.png",
   "arrows.png",
   "rothint.png",
@@ -84,10 +81,8 @@ pub const TIME: Img = def("time.png");
 pub const TILE: Img = def("tile.png");
 pub const BOX: Img = def("box.png");
 pub const HERO: Img = def("hero.png");
-pub const QUEST: Img = def("npc.png");
 pub const UNKNOWN_ENEMY: Img = def("nme_unknown.png");
 pub const SCROLL: Img = def("scroll.png");
-pub const BLOCKED: Img = def("blocked.png");
 pub const HEART: Img = def("heart.png");
 pub const HINT: Img = def("rothint.png");
 pub const FLAG: Img = def("flag.png");

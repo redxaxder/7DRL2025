@@ -6,7 +6,7 @@ pub type DMap = Buffer2D<i16>;
 pub const BOARD_RECT: IRect = IRect { x: 0, y:0, width: 50, height: 50 };
 pub const PLAYER_UNIT_ID: UnitId = 0;
 
-pub const MONSTER_COLOR: Color = Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
+pub const MONSTER_COLOR: Color = WHITE; // Color{r: 0.88, g:0.28, b: 0.7, a: 1.};
 
 pub const INVISIBLE: Color = Color{r:0.,g:0.,b:0.,a:0.};
 
