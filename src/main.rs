@@ -29,25 +29,52 @@ const BOSS_LOCATION:IVec = IVec::ZERO;
 const BASE_ANIMATION_DURATION: f64 = 0.5;
 
 
-
 //const MONSTER_COLOR: Color = PURPLE;
+//
+struct UIState {
+  // Animation stuff
+  animations: AnimationQueue,
+  ragdolls: Map<UnitId, Ref<Ragdoll>>,
+  particles: Vec<Ref<Particle>>,
+  flying_tiles: Vec<Ref<AnimTile>>,
+  hud: Ref<Hud>,
+  camera_ref: Ref<IVec>,
+  compass_flash: f32,
+  // record where stuff gets drawn in ui
+  layout: Map<HudItem, Rect>,
 
-struct SimulationState {
-  player_pos: Position,
+
+  // Audio
+  sounds: Map<Path, Rc<Sound>>,
+}
+
+impl UIState {
+  pub fn new(sounds: &Map<Path, Rc<Sound>>) -> Self {
+    Self {
+
+      animations: AnimationQueue::new(),
+      ragdolls: Map::new(),
+      particles: Vec::new(),
+      flying_tiles: Vec::new(),
+      hud: Ref::new(Hud::new()),
+      camera_ref: Ref::new(IVec::ZERO),
+      compass_flash: 0.,
+
+      layout: Map::new(),
+
+      sounds: sounds.clone(),
+
+    }
+
+
+  }
+}
+
+struct SealedState {
   player_immortal: bool,
-  player_hp: i64,
-  player_hp_max: i64,
-  player_xp: i64,
-  player_level: i64,
-  player_tiles: i64,
   player_next_tile: Tile,
-  player_defeat: bool,
   next_quest: Option<Quest>,
-  player_tile_transform: D8,
-  monster_turns: i64,
-  score_min_hp: i64,
   score_tiles_placed:  i64,
-
   board: Buffer2D<Tile>,
   regions: Buffer2D<[RegionId;4]>,
   region_sizes: Map<RegionId, i64>,
@@ -58,35 +85,107 @@ struct SimulationState {
   open_regions: Set<RegionId>,
   // positions bordering void
   void_frontier: WrapSet,
-
-  enemies: WrapMap<Enemy>,
   enemy_supply: i64,
+
+  // undoable but why
+  player_dmap: DMap,
+  nearest_enemy_dmap: DMap,
+  player_tile_transform: D8,
+}
+
+impl SealedState {
+  pub fn new() -> Self {
+    Self {
+      player_next_tile: Tile::default(),
+      player_immortal: std::env::var("IMMORTAL").is_ok() || DEBUG_IMMORTAL,
+      next_quest: None,
+      player_tile_transform: D8::E,
+      board: Buffer2D::new(Tile::default(), BOARD_RECT),
+      enemy_supply: 0,
+      regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
+      next_region_id: 1,
+      open_regions: Set::new(),
+      void_frontier: WrapSet::new(BOARD_RECT),
+      region_sizes: Map::new(),
+      region_start: Map::new(),
+      player_dmap: Buffer2D::new(0, BOARD_RECT),
+      nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
+      score_tiles_placed: 0,
+    }
+  }
+}
+
+struct Snapshot {
+  player_hp: i64,
+  player_hp_max: i64,
+  player_xp: i64,
+  player_level: i64,
+  player_tiles: i64,
+  player_defeat: bool,
+  monster_turns: i64,
+  score_min_hp: i64,
+  enemies: WrapMap<Enemy>,
   num_bosses: usize,
   rng: Rng,
+  quests: WrapMap<Quest>,
+  prizes: WrapMap<Prize>
+}
 
+
+struct Snapshots{
+  saved: Vec<(Snapshot, Vec<Position>)>,
+  current: Snapshot,
+  player_pos: Position,
+}
+impl Snapshots {
+  pub fn pos_mut(&mut self) -> (&Snapshot, DropBear<Position>) {
+    let snapshot = &self.current;
+    let ppos = &mut self.player_pos;
+    let saved = &mut self.saved;
+    let ptr = DropBear::new(ppos, |p| { 
+      let last = &mut saved.last_mut().unwrap();
+      if p != last.1.last().unwrap() {
+        last.1.push(*p);
+      }
+    });
+    (snapshot, ptr)
+  }
+
+  pub fn snapshot_mut(&mut self) -> (DropBear<Snapshot>, &Position) {
+    todo!()
+  }
+
+  pub fn pos(&self) -> &Position {
+    todo!()
+  }
+  pub fn snapshot(&self) -> &Snapshot {
+    todo!()
+  }
+
+}
+
+
+
+
+
+struct SimulationState {
+  player_pos: Position,
+  player_hp: i64,
+  player_hp_max: i64,
+  player_xp: i64,
+  player_level: i64,
+  player_tiles: i64,
+  player_defeat: bool,
+  monster_turns: i64,
+  score_min_hp: i64,
+  enemies: WrapMap<Enemy>,
+  num_bosses: usize,
+  rng: Rng,
   quests: WrapMap<Quest>,
   prizes: WrapMap<Prize>,
 
-  player_dmap: DMap,
-  nearest_enemy_dmap: DMap,
-
-
-  // Animation stuff
-  animations: AnimationQueue,
-  ragdolls: Map<UnitId, Ref<Ragdoll>>,
-  particles: Vec<Ref<Particle>>,
-  flying_tiles: Vec<Ref<AnimTile>>,
-  hud: Ref<Hud>,
-  camera_ref: Ref<IVec>,
-  compass_flash: f32,
-
-
-  // record where stuff gets drawn in ui
-  layout: Map<HudItem, Rect>,
-
-
-  // Audio
-  sounds: Map<Path, Rc<Sound>>,
+  ui: UIState,
+  sealed: SealedState,
 }
 
 pub struct Hud {
@@ -157,45 +256,18 @@ impl SimulationState {
       player_xp: 0,
       player_level: 1,
       player_tiles: STARTING_TILES,
-      player_next_tile: Tile::default(),
       player_defeat: false,
-      player_immortal: std::env::var("IMMORTAL").is_ok() || DEBUG_IMMORTAL,
-      next_quest: None,
-      player_tile_transform: D8::E,
       monster_turns: 0,
-      board: Buffer2D::new(Tile::default(), BOARD_RECT),
       enemies: WrapMap::new(BOARD_RECT),
-      enemy_supply: 0,
       quests: WrapMap::new(BOARD_RECT),
       prizes: WrapMap::new(BOARD_RECT),
-      regions: Buffer2D::new([RegionId::MAX;4], BOARD_RECT),
-      next_region_id: 1,
-      open_regions: Set::new(),
-      void_frontier: WrapSet::new(BOARD_RECT),
-      region_sizes: Map::new(),
-      region_start: Map::new(),
       rng: from_current_time(),
-      player_dmap: Buffer2D::new(0, BOARD_RECT),
-      nearest_enemy_dmap: Buffer2D::new(0, BOARD_RECT),
       num_bosses: NUM_BOSSES,
 
-      // Animation stuff
-      animations: AnimationQueue::new(),
-      ragdolls: Map::new(),
-      particles: Vec::new(),
-      flying_tiles: Vec::new(),
-      hud: Ref::new(Hud::new()),
-      camera_ref: Ref::new(IVec::ZERO),
-      compass_flash: 0.,
-
-      layout: Map::new(),
-
-      // audio
-      sounds: sounds.clone(),
-
+      sealed: SealedState::new(),
+      ui: UIState::new(sounds),
       // score
       score_min_hp: STARTING_HP,
-      score_tiles_placed: 0,
     };
 
 
@@ -214,22 +286,22 @@ impl SimulationState {
     sim.ragdoll_ref(PLAYER_UNIT_ID);
     sim.next_tile();
 
-    sim.hud.desire_path.push(sim.player_pos);
+    sim.ui.hud.desire_path.push(sim.player_pos);
 
 
     sim
   }
 
   pub fn player_dead(&self) -> bool {
-    self.player_hp < 1 && !self.player_immortal
+    self.player_hp < 1 && !self.sealed.player_immortal
   }
 
   pub fn transform_tile(&mut self, g: D8) {
     let duration = 0.5;
-    let hudref = self.hud.clone();
+    let hudref = self.ui.hud.clone();
     let r = (g * Dir4::Right).radians();
-    let t = g * self.player_tile_transform;
-    self.animations.append(move |time| {
+    let t = g * self.sealed.player_tile_transform;
+    self.ui.animations.append(move |time| {
       let p = time.progress(duration);
       unsafe {
         hudref.get().tile_rotation = r * p;
@@ -240,22 +312,22 @@ impl SimulationState {
       hud.tile_transform = t;
       hud.tile_rotation = 0.;
     }).reserve(PLAYER_UNIT_ID);
-    self.player_tile_transform = g * self.player_tile_transform;
+    self.sealed.player_tile_transform = g * self.sealed.player_tile_transform;
 
   }
 
   pub fn defer_set_hud(&mut self, mut f: impl FnMut(&mut Hud) + 'static)
     -> &mut Animation {
-    let hudref = self.hud.clone();
-    self.animations.append(move |_| unsafe {
+    let hudref = self.ui.hud.clone();
+    self.ui.animations.append(move |_| unsafe {
       (f)(hudref.get());
       false
     })
   }
 
   pub fn defer_play_sound(&mut self, soundpath: Path) -> &mut Animation {
-    let sound = self.sounds[soundpath].clone();
-    self.animations.append(move |_| {
+    let sound = self.ui.sounds[soundpath].clone();
+    self.ui.animations.append(move |_| {
       play_sound(sound.clone());
       false
     })
@@ -263,10 +335,10 @@ impl SimulationState {
 
   pub fn spawn_enemy(&mut self, t: EnemyType, at: Position) {
     let nme = Enemy::new(t);
-    self.enemy_supply -= MONSTER_SPAWN_POINTS;
+    self.sealed.enemy_supply -= MONSTER_SPAWN_POINTS;
     self.enemies.insert(at, nme);
     let rdr = self.ragdoll_ref(nme.id);
-    if self.board[at] != Tile::default() {
+    if self.sealed.board[at] != Tile::default() {
       unsafe {
         rdr.get().img = enemy_img(nme.t, false);
         rdr.get().color = MONSTER_COLOR;
@@ -287,7 +359,7 @@ impl SimulationState {
       while let Some(cursor) = frontier.pop() {
         if result.contains_key(&cursor) { continue; }
         if !self.enemies.contains_key(cursor) { continue; }
-        if self.board[cursor] == Tile::default() { continue; }
+        if self.sealed.board[cursor] == Tile::default() { continue; }
         if let Some(Enemy { t: EnemyType::GhostWitch, .. }) = &self.enemies.get(cursor) {
           if distance > 0 { continue; }
         }
@@ -307,14 +379,14 @@ impl SimulationState {
   pub fn set_enemy_alerts(&mut self, alerted: bool)  {
     for d in Dir4::list() {
       let neighbor = self.player_pos + d.into();
-      if self.board[neighbor] == Tile::default() {
+      if self.sealed.board[neighbor] == Tile::default() {
         continue;
       }
       let crowd = self.calculate_crowd(neighbor);
       for &pos in crowd.keys() {
         let nme = self.enemies[pos];
         let rgr = self.ragdoll_ref(nme.id);
-        self.animations.append(move |_| unsafe {
+        self.ui.animations.append(move |_| unsafe {
           rgr.get().img = enemy_img(nme.t, alerted);
           false
         }).reserve(nme.id);
@@ -330,8 +402,8 @@ impl SimulationState {
   fn fill_region_ids(&mut self, position: Position, dir: Dir4) {
     let mut frontier: Vec<(Position, Dir4)> = vec!( (position, dir));
     while let Some((p,d)) = frontier.pop() {
-      let rid = self.regions[p][d.index()];
-      let t0 = self.board[p].contents[d.index()];
+      let rid = self.sealed.regions[p][d.index()];
+      let t0 = self.sealed.board[p].contents[d.index()];
 
       let neighbors = subtile_neighbors((p,d));
       let mut min_rid = RegionId::MAX;
@@ -341,13 +413,13 @@ impl SimulationState {
         // the opposite is not considered adajcent if the center terrain doesn't match
         // UNLESS this is river terrain
         if i == 0
-          && self.board[p].contents[4] != t0
+          && self.sealed.board[p].contents[4] != t0
           && t0 != Terrain::River {
             continue;
         }
-        let t1 = self.board[np].contents[nd.index()];
+        let t1 = self.sealed.board[np].contents[nd.index()];
         if t1 != t0 { continue; }
-        let rid1 = self.regions[np][nd.index()];
+        let rid1 = self.sealed.regions[np][nd.index()];
 
         min_rid = min_rid.min(rid1);
       }
@@ -355,10 +427,10 @@ impl SimulationState {
       for i in 0..4 { // walk matches with rid above min
         let (np, nd) = neighbors[i];
         // the opposite is not considered adajcent if the center terrain doesn't match
-        if i == 0 && self.board[p].contents[4] != t0 { continue; }
-        let t1 = self.board[np].contents[nd.index()];
+        if i == 0 && self.sealed.board[p].contents[4] != t0 { continue; }
+        let t1 = self.sealed.board[np].contents[nd.index()];
         if t1 != t0 { continue; }
-        let rid1 = self.regions[np][nd.index()];
+        let rid1 = self.sealed.regions[np][nd.index()];
 
         if min_rid < rid1 { frontier.push((np, nd)) }
       }
@@ -366,9 +438,9 @@ impl SimulationState {
       if min_rid < rid {
         // if two compatible regions with distinct rids are adjacent,
         // the one with the larger id is merged into the smaller
-        self.regions[p][d.index()] = min_rid;
+        self.sealed.regions[p][d.index()] = min_rid;
         // we remove the larger from the rid start tracker
-        if self.region_start.remove(&rid).is_some() {
+        if self.sealed.region_start.remove(&rid).is_some() {
           debug!("merged region {}", rid);
         }
 
@@ -380,7 +452,7 @@ impl SimulationState {
   }
 
   pub fn place_tile(&mut self, position: Position, tile: Tile) {
-    self.board[position] = tile;
+    self.sealed.board[position] = tile;
     { // region tracking
       // merge regions
       for d in Dir4::list() {
@@ -390,49 +462,49 @@ impl SimulationState {
       // new regions
       for d in Dir4::list() {
         self.fill_region_ids(position,d);
-        if self.regions[position][d.index()] == RegionId::MAX {
-          self.regions[position][d.index()] = self.next_region_id;
-          self.region_start.insert(self.next_region_id, (position, d));
-          self.next_region_id += 1;
+        if self.sealed.regions[position][d.index()] == RegionId::MAX {
+          self.sealed.regions[position][d.index()] = self.sealed.next_region_id;
+          self.sealed.region_start.insert(self.sealed.next_region_id, (position, d));
+          self.sealed.next_region_id += 1;
         }
       }
 
       // update void frontier
-      self.void_frontier.remove(position);
+      self.sealed.void_frontier.remove(position);
       for d in Dir4::list() {
         let n = position + d.into();
-        if self.board[n] == Tile::default() {
-          self.void_frontier.insert(n);
+        if self.sealed.board[n] == Tile::default() {
+          self.sealed.void_frontier.insert(n);
         }
       }
 
       // rebuild open regions
-      self.open_regions.clear();
-      for &void_cell in self.void_frontier.iter() {
+      self.sealed.open_regions.clear();
+      for &void_cell in self.sealed.void_frontier.iter() {
         for d in Dir4::list() {
           let cell = void_cell + d.into();
-          let regionid = self.regions[cell][d.opposite().index()];
+          let regionid = self.sealed.regions[cell][d.opposite().index()];
           if regionid < RegionId::MAX {
-            self.open_regions.insert(regionid);
+            self.sealed.open_regions.insert(regionid);
           }
         }
       }
 
       // place quest
-      if let Some(_) = self.next_quest {
-        self.quests.insert(position, self.next_quest.take().unwrap());
+      if let Some(_) = self.sealed.next_quest {
+        self.quests.insert(position, self.sealed.next_quest.take().unwrap());
       }
     }
   }
 
   pub fn update_region_sizes(&mut self) {
-    self.region_sizes.clear();
+    self.sealed.region_sizes.clear();
     let mut v = vec![];
     for p in BOARD_RECT.iter() {
       v.clear();
       for d in Dir4::list() {
-        let rid = self.regions[p][d.index()];
-        // let terrain = self.board[p].contents[d.index()];
+        let rid = self.sealed.regions[p][d.index()];
+        // let terrain = self.sealed.board[p].contents[d.index()];
         if rid == RegionId::MAX { continue; }
         v.push(rid);
       }
@@ -441,15 +513,15 @@ impl SimulationState {
       // FIXME: algorithm is quadratic in region count
       // maybe replace linear map with hashmap
       for &rid in &v {
-        *self.region_sizes.entry(rid).or_insert(0) += 1;
+        *self.sealed.region_sizes.entry(rid).or_insert(0) += 1;
       }
     }
   }
 
   pub fn reward_completed_region(&mut self, rid: RegionId) {
-    let (position, dir) = self.region_start[&rid];
-    let terrain = self.board[position].contents[dir.index()];
-    let size = self.region_sizes[&rid];
+    let (position, dir) = self.sealed.region_start[&rid];
+    let terrain = self.sealed.board[position].contents[dir.index()];
+    let size = self.sealed.region_sizes[&rid];
     if terrain == Terrain::River {
       // Cancel the reward if the region is a river without
       // a source
@@ -457,7 +529,7 @@ impl SimulationState {
       let mut frontier: Vec<(Position, Dir4)> = vec![(position,dir)];
       let mut visited: Set<(Position, Dir4)>  = Set::new();
       while let Some(subtile@(tile,_)) = frontier.pop() {
-        if self.board[tile].count(Terrain::River) == 1 {
+        if self.sealed.board[tile].count(Terrain::River) == 1 {
           river_reward = true;
           break;
         }
@@ -467,10 +539,10 @@ impl SimulationState {
           for i in 0..4 {
             let n@(p,d) = neighbors[i];
             if i == 0 &&
-              self.board[p].contents[4] != Terrain::River {
+              self.sealed.board[p].contents[4] != Terrain::River {
                 continue;
             }
-            if self.board[p]
+            if self.sealed.board[p]
               .contents[d.index()] == Terrain::River {
               frontier.push(n);
             }
@@ -486,27 +558,27 @@ impl SimulationState {
     };
     let tile_reward = if size > REGION_REWARD_THRESHOLD { 1 } else { 0 };
     if xp_reward > 0 {
-      let to = self.layout[&HudItem::Xp].center();
+      let to = self.ui.layout[&HudItem::Xp].center();
 
-      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      self.ui.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       for _i in 0..3 {
         let delay = 0.15;
         self.defer_play_sound(xp_sound()).chain();
-        self.animations.append_empty(delay).chain();
+        self.ui.animations.append_empty(delay).chain();
       }
 
       for i in 0..xp_reward {
         let delay = i as f64 * 0.15;
-        self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-        self.animations.append_empty(delay).chain();
+        self.ui.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+        self.ui.animations.append_empty(delay).chain();
         self.launch_particle(self.player_pos, to, XP, YELLOW, 3., 0.03)
           .chain();
           self.add_xp(1).chain();
       }
     }
     if tile_reward > 0 {
-      let to = self.layout[&HudItem::Tile].center();
-      self.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+      let to = self.ui.layout[&HudItem::Tile].center();
+      self.ui.animations.append_empty(0.).require(PLAYER_UNIT_ID);
       self.defer_play_sound(tile_sound()).chain();
       self.launch_particle(self.player_pos, to, TILE, SKYBLUE, 3., 0.1).chain();
       self.add_tiles(1).chain();
@@ -514,12 +586,12 @@ impl SimulationState {
   }
 
   pub fn player_current_tile(&self) -> Tile {
-    self.player_tile_transform * self.player_next_tile
+    self.sealed.player_tile_transform * self.sealed.player_next_tile
   }
 
   // returns whether the next tile has any placeable spots
   pub fn next_tile(&mut self) -> bool {
-    self.player_next_tile = tiles::generate(&mut self.rng);
+    self.sealed.player_next_tile = tiles::generate(&mut self.rng);
     self.defer_set_hud(|hud| hud.tile_rotation = 0.)
       .reserve(PLAYER_UNIT_ID);
     self.add_tiles(-1).chain();
@@ -529,12 +601,12 @@ impl SimulationState {
       debug!("quest");
       if let Some(quest) = eligible_for_quest(&self.enemies, &self.quests, &mut self.rng) {
         debug!("{:?}", quest);
-        self.next_quest = Some(quest);
+        self.sealed.next_quest = Some(quest);
       }
     }
 
-    for p in self.void_frontier.iter() {
-      if self.tile_compatibility(*p, self.player_next_tile) > 0 {
+    for p in self.sealed.void_frontier.iter() {
+      if self.tile_compatibility(*p, self.sealed.player_next_tile) > 0 {
         return true;
       }
     }
@@ -542,7 +614,7 @@ impl SimulationState {
   }
 
   pub fn update_player_dmap(&mut self) {
-    self.player_dmap.fill(i16::MAX);
+    self.sealed.player_dmap.fill(i16::MAX);
     let mut d = 0;
     let mut frontier = Vec::new();
     frontier.push(self.player_pos);
@@ -550,12 +622,12 @@ impl SimulationState {
 
     loop {
       while let Some(visit) = frontier.pop() {
-        if self.player_dmap[visit] > d {
-          self.player_dmap[visit] = d;
+        if self.sealed.player_dmap[visit] > d {
+          self.sealed.player_dmap[visit] = d;
           for d in Dir4::list() {
             let neighbor = visit + d.into();
-            if self.player_dmap[neighbor] == i16::MAX
-              && self.board[neighbor] != Tile::default()
+            if self.sealed.player_dmap[neighbor] == i16::MAX
+              && self.sealed.board[neighbor] != Tile::default()
             {
               next_frontier.push(neighbor);
             }
@@ -573,7 +645,7 @@ impl SimulationState {
   }
 
   pub fn update_nearest_dmap(&mut self) {
-    self.nearest_enemy_dmap.fill(i16::MAX);
+    self.sealed.nearest_enemy_dmap.fill(i16::MAX);
     let mut d = 0;
     let mut frontier = Vec::new();
     for (pos, nme) in self.enemies.iter() {
@@ -587,12 +659,12 @@ impl SimulationState {
 
     loop {
       while let Some(visit) = frontier.pop() {
-        if self.nearest_enemy_dmap[visit] > d {
-          self.nearest_enemy_dmap[visit] = d;
+        if self.sealed.nearest_enemy_dmap[visit] > d {
+          self.sealed.nearest_enemy_dmap[visit] = d;
           for d in Dir4::list() {
             let neighbor = visit + d.into();
-            if self.nearest_enemy_dmap[neighbor] == i16::MAX
-              && self.board[neighbor] != Tile::default()
+            if self.sealed.nearest_enemy_dmap[neighbor] == i16::MAX
+              && self.sealed.board[neighbor] != Tile::default()
             {
               next_frontier.push(neighbor);
             }
@@ -617,14 +689,14 @@ impl SimulationState {
         let t0 = Vec2::from(from);
         let t1 = Vec2::from(to);
         let mid = (t0 + t1) / 2.;
-        self.animations.append(empty_animation)
+        self.ui.animations.append(empty_animation)
           .reserve([from,to])
           .reserve(nme.id);
         self.animate_unit_motion(nme.id, t0, mid, 0.5 * BASE_ANIMATION_DURATION / speed)
           .chain();
-        if self.board[from] == Tile::default() {
+        if self.sealed.board[from] == Tile::default() {
           let rgr = self.ragdoll_ref(nme.id).clone();
-          self.animations.append(move |_time| {
+          self.ui.animations.append(move |_time| {
             unsafe {
               let ragdoll = rgr.get();
               ragdoll.img = enemy_img(nme.t, false);
@@ -667,18 +739,18 @@ impl SimulationState {
     velocity.x += (self.rng.next_u32() % 1000) as f32 / 1000.;
     velocity.y += (self.rng.next_u32() % 1000) as f32 / 1000.;
     velocity *= 8.;
-    self.animations.append_empty(0.).reserve(
+    self.ui.animations.append_empty(0.).reserve(
       [id, PLAYER_UNIT_ID]
     ).reserve(at);
     self.defer_play_sound(xp_sound()).chain();
     self.animate_unit_fling(id, at.into(), velocity, 0.2)
       .require(id);
     self.add_hp(-1).require(id);
-    self.animations.append(empty_animation)
+    self.ui.animations.append(empty_animation)
       .require([id, PLAYER_UNIT_ID]);
     self.launch_particle(
       at,
-      self.layout[&HudItem::Xp].center(),
+      self.ui.layout[&HudItem::Xp].center(),
       XP,
       YELLOW,
       3.,
@@ -689,8 +761,8 @@ impl SimulationState {
 
   pub fn add_xp(&mut self, amount: i64) -> &mut Animation {
     self.player_xp += amount;
-    let hud = self.hud.clone();
-    self.animations.append(move |_| unsafe {
+    let hud = self.ui.hud.clone();
+    self.ui.animations.append(move |_| unsafe {
       hud.get().xp += amount;
       false
     })
@@ -705,9 +777,9 @@ impl SimulationState {
     if self.player_hp < self.score_min_hp {
       self.score_min_hp = self.player_hp;
     }
-    let hudref = self.hud.clone();
+    let hudref = self.ui.hud.clone();
     let duration = 0.1;
-    self.animations.append(move |time| unsafe {
+    self.ui.animations.append(move |time| unsafe {
       let hud = hudref.get();
       if is_damage { hud.hp_color = RED; }
       let more = time.progress(duration) < 1.;
@@ -729,7 +801,7 @@ impl SimulationState {
     for d in Dir4::list() {
       let adj = self.player_pos + d.into();
       // monsters in void don't count
-      if self.board[adj] == Tile::default() { continue; }
+      if self.sealed.board[adj] == Tile::default() { continue; }
       in_combat = in_combat || self.enemies.get(adj).is_some();
     }
     in_combat
@@ -744,13 +816,13 @@ impl SimulationState {
     let target = self.player_pos + dir.into();
     let opp = dir.opposite();
     let first_half = Terrain::Road ==
-      self.board[self.player_pos].contents[dir.index()];
+      self.sealed.board[self.player_pos].contents[dir.index()];
 
     let second_half = Terrain::Road ==
-      if self.board[target] == Tile::default() {
+      if self.sealed.board[target] == Tile::default() {
         self.player_current_tile().contents[opp.index()]
       } else {
-        self.board[target].contents[opp.index()]
+        self.sealed.board[target].contents[opp.index()]
       };
     first_half && second_half
   }
@@ -762,7 +834,7 @@ impl SimulationState {
   }
 
   fn ragdoll_ref(&mut self, unit_id: UnitId) -> Ref<Ragdoll> {
-    if let Some(rgr) = self.ragdolls.get(&unit_id) {
+    if let Some(rgr) = self.ui.ragdolls.get(&unit_id) {
       (*rgr).clone()
     } else if unit_id == PLAYER_UNIT_ID {
       let rgr = Ref::new(Ragdoll {
@@ -771,7 +843,7 @@ impl SimulationState {
         img: HERO,
         dead: false,
       });
-      self.ragdolls.insert(unit_id, rgr.clone());
+      self.ui.ragdolls.insert(unit_id, rgr.clone());
       rgr
     } else {
       let Some((&pos, _nme)) = self.enemies.iter().find(|(_pos,nme)| { nme.id == unit_id }) else {
@@ -783,9 +855,9 @@ impl SimulationState {
         img: UNKNOWN_ENEMY,
         dead: false,
       });
-      self.ragdolls.insert(unit_id, rgr.clone());
+      self.ui.ragdolls.insert(unit_id, rgr.clone());
       let result = rgr.clone();
-      self.animations.append(move |_| unsafe {
+      self.ui.animations.append(move |_| unsafe {
         rgr.get().color.a = 1.;
         false
       }).reserve(unit_id).reserve(pos);
@@ -795,7 +867,7 @@ impl SimulationState {
 
   pub fn animate_unit_fling(&mut self, u: UnitId, p0: Vec2, velocity: Vec2, duration: Seconds) -> &mut Animation {
     let uref = self.ragdoll_ref(u);
-    self.animations.append(move |time| {
+    self.ui.animations.append(move |time| {
       let progress = time.progress(duration);
       unsafe {
         uref.get().pos = p0 + velocity * (time.elapsed as f32);
@@ -811,7 +883,7 @@ impl SimulationState {
     let prc0 = self.player_relative_coordinates(p0);
     let prc1 = self.player_relative_coordinates(p1);
     let uref = self.ragdoll_ref(u);
-    self.animations.append(move |time| {
+    self.ui.animations.append(move |time| {
       let c = time.progress(duration);
         unsafe {
           uref.get().pos = c * prc1 + (1.-c) * prc0;
@@ -825,19 +897,19 @@ impl SimulationState {
     to: Position,
     tile: Tile,
     ) -> &mut Animation {
-    let origin_pos = self.layout[&HudItem::Tile].center();
+    let origin_pos = self.ui.layout[&HudItem::Tile].center();
     let p = Ref::new(AnimTile {
       pos: origin_pos,
       tile,
       dead: false
     });
 
-    let cr = self.camera_ref.clone();
+    let cr = self.ui.camera_ref.clone();
 
-    self.flying_tiles.push(p.clone());
+    self.ui.flying_tiles.push(p.clone());
 
     let duration = 0.15;
-    self.animations.append(move |time: Time| {
+    self.ui.animations.append(move |time: Time| {
       let c = time.progress(duration);
       let camera_focus = *cr;
       let target_board = Vec2::from(to - camera_focus);
@@ -875,11 +947,11 @@ impl SimulationState {
       kick as f32 * Vec2 { x, y }
     });
 
-    self.particles.push(p.clone());
+    self.ui.particles.push(p.clone());
     let origin = self.player_relative_coordinates(Vec2::from(from));
-    let cr = self.camera_ref.clone();
+    let cr = self.ui.camera_ref.clone();
 
-    self.animations.append(move |time: Time| {
+    self.ui.animations.append(move |time: Time| {
       if p.pos.x == f32::MAX {
         let camera_focus = Vec2::from(*cr);
         let origin_screen_pos = DISPLAY_GRID.rect(origin - camera_focus).center();
@@ -902,7 +974,7 @@ impl SimulationState {
   pub fn move_player(&mut self, to: Position) {
     let from = self.player_pos;
     self.player_pos = to;
-    self.hud.desire_path.push(to);
+    self.ui.hud.desire_path.push(to);
 
     self.animate_unit_motion(PLAYER_UNIT_ID, from.into(), to.into(), BASE_ANIMATION_DURATION.into())
       .reserve([from,to])
@@ -922,7 +994,7 @@ impl SimulationState {
       let t1: Terrain = tile.contents[d.index()];
       let p2 = pos + d.into();
       let i2 = d.opposite().index();
-      let t2: Terrain = self.board[p2].contents[i2];
+      let t2: Terrain = self.sealed.board[p2].contents[i2];
       if t2 == Terrain::None { continue; } // fully compatible
       if t1 == t2 { continue; } // fully compatible
       if t1 != t2 {
@@ -936,22 +1008,22 @@ impl SimulationState {
   }
 
   pub fn tick_animations(&mut self) {
-    self.animations.tick();
+    self.ui.animations.tick();
     let mut died = vec!();
-    for (id,v) in self.ragdolls.iter() {
+    for (id,v) in self.ui.ragdolls.iter() {
       if v.dead { died.push(*id); }
     }
     for dead in died {
-      self.ragdolls.remove(&dead);
+      self.ui.ragdolls.remove(&dead);
     }
-    for i in (0.. self.particles.len()).rev() {
-      if self.particles[i].dead {
-        self.particles.remove(i);
+    for i in (0.. self.ui.particles.len()).rev() {
+      if self.ui.particles[i].dead {
+        self.ui.particles.remove(i);
       }
     }
-    for i in (0..self.flying_tiles.len()).rev() {
-      if self.flying_tiles[i].dead {
-        self.flying_tiles.remove(i);
+    for i in (0..self.ui.flying_tiles.len()).rev() {
+      if self.ui.flying_tiles[i].dead {
+        self.ui.flying_tiles.remove(i);
       }
     }
   }
@@ -996,13 +1068,13 @@ async fn main() {
     bgm.poll();
 
     if get_keys_pressed().len() > 0 {
-      sim.animations.hurry(2.);
+      sim.ui.animations.hurry(2.);
     }
 
     let mut inputdir: Option<Dir4> = None;
 
     if let Some(input) = get_input() {
-      if sim.hud.defeat || sim.hud.victory {
+      if sim.ui.hud.defeat || sim.ui.hud.victory {
         sim = SimulationState::new(&sounds);
         next_frame().await;
         continue;
@@ -1020,7 +1092,7 @@ async fn main() {
         }
         Input::Discard => {
           if sim.player_tiles > 0 {
-            sim.next_quest = None;
+            sim.sealed.next_quest = None;
             sim.next_tile();
           }
         }
@@ -1028,7 +1100,7 @@ async fn main() {
           if sim.player_xp >= sim.player_xp_next() {
             sim.add_xp(-sim.player_xp_next());
             sim.player_hp_max += 1;
-            let to = sim.layout[&HudItem::Hp].center();
+            let to = sim.ui.layout[&HudItem::Hp].center();
             sim.defer_play_sound(LEVEL_UP_SOUND);
             sim.launch_particle(sim.player_pos, to,
               HEART, RED,
@@ -1048,7 +1120,7 @@ async fn main() {
 
     if let Some(playermove) = inputdir  {
       let target = sim.player_pos + playermove.into();
-      let target_empty = sim.board[target] == Tile::default();
+      let target_empty = sim.sealed.board[target] == Tile::default();
 
       // do combat
       if sim.in_combat() {
@@ -1058,7 +1130,7 @@ async fn main() {
           while sim.num_bosses > 1 {
             let id = sim.enemies.get(target).unwrap().id;
             let delay = BASE_ANIMATION_DURATION/speed_mul;
-            sim.animations.append_empty(delay)
+            sim.ui.animations.append_empty(delay)
               .reserve(id);
             sim.slay_enemy(target, playermove);
             sim.num_bosses -= 1;
@@ -1102,7 +1174,7 @@ async fn main() {
           }
 
           let won = defeated_boss && !sim.player_dead();
-          sim.animations.sync();
+          sim.ui.animations.sync();
           sim.defer_set_hud(move |hud| hud.victory = won).chain();
         } else { // nobody in this spot to fight
           needs_road = true;
@@ -1113,36 +1185,36 @@ async fn main() {
       let using_road = sim.is_road_dir(playermove);
       can_move = can_move && (!needs_road || using_road);
       can_move = can_move && (!target_empty || sim.tile_compatibility(target, sim.player_current_tile()) > 0);
-      if sim.player_tiles < 1  && sim.board[target] == Tile::default() {
+      if sim.player_tiles < 1  && sim.sealed.board[target] == Tile::default() {
         can_move = false;
       }
       if !player_moved && can_move { // move player
 
         let target_is_slow: bool = {
           let mut rivers = 0;
-          let t = sim.board[target];
+          let t = sim.sealed.board[target];
           for i in 0..4 {
             if t.contents[i] == Terrain::River { rivers += 1; }
           }
           rivers >= 2
         };
         let edge_is_slow: bool = {
-          let t0 = sim.board[sim.player_pos]
+          let t0 = sim.sealed.board[sim.player_pos]
             .contents[playermove.index()];
-          let t1 = sim.board[target]
+          let t1 = sim.sealed.board[target]
             .contents[playermove.opposite().index()];
           t0 == Terrain::River
             && t1 == Terrain::River
         };
 
         // try to place tile
-        if sim.board[target] == Tile::default() && sim.player_tiles > 0 {
+        if sim.sealed.board[target] == Tile::default() && sim.player_tiles > 0 {
           sim.place_tile(target, sim.player_current_tile());
-          sim.score_tiles_placed += 1;
+          sim.sealed.score_tiles_placed += 1;
           unsafe {
-            sim.hud.get().hidden_spaces.insert(target);
+            sim.ui.hud.get().hidden_spaces.insert(target);
           }
-          sim.animations.append_empty(0.).reserve(target).reserve(PLAYER_UNIT_ID);
+          sim.ui.animations.append_empty(0.).reserve(target).reserve(PLAYER_UNIT_ID);
           sim.launch_tile(target, sim.player_current_tile()).chain();
           sim.defer_set_hud(move |hud|{ hud.hidden_spaces.remove(target);} )
             .chain();
@@ -1151,7 +1223,7 @@ async fn main() {
           tile_placed = true;
           // new tiles smoosh monsters
           if let Some(nme) = sim.enemies.remove(target) {
-            sim.ragdolls.remove(&nme.id);
+            sim.ui.ragdolls.remove(&nme.id);
           }
           sim.update_region_sizes();
 
@@ -1163,18 +1235,18 @@ async fn main() {
             }
             for &p in &to_check {
               let mut is_matched = true;
-              let ptile = sim.board[p];
+              let ptile = sim.sealed.board[p];
 
               for d in Dir4::list() {
-                let ntile = sim.board[p + d.into()];
+                let ntile = sim.sealed.board[p + d.into()];
                 if ptile.contents[d.index()]
                   != ntile.contents[d.opposite().index()] {
                     is_matched = false;
                 }
               }
               if is_matched {
-                let to = sim.layout[&HudItem::Tile].center();
-                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                let to = sim.ui.layout[&HudItem::Tile].center();
+                sim.ui.animations.append_empty(0.).require(PLAYER_UNIT_ID);
 
                 sim.defer_set_hud(move |hud| {
                   hud.highlighted_spaces.insert(p);
@@ -1201,11 +1273,11 @@ async fn main() {
             let p2 = target + d.into();
             let d2 = d.opposite();
             for regionid in [
-              sim.regions[target][d.index()],
-              sim.regions[p2][d2.index()]
+              sim.sealed.regions[target][d.index()],
+              sim.sealed.regions[p2][d2.index()]
             ] {
               if regionid == RegionId::MAX { continue; }
-              if !sim.open_regions.contains(&regionid) {
+              if !sim.sealed.open_regions.contains(&regionid) {
                 just_completed.insert(regionid);
               }
             }
@@ -1215,8 +1287,8 @@ async fn main() {
           }
         } else { // we stepped on an existing tile
           if (target_is_slow || edge_is_slow) && !using_road {
-            let to = sim.layout[&HudItem::SpeedPenalty].center();
-            sim.animations.append(empty_animation).require(target);
+            let to = sim.ui.layout[&HudItem::SpeedPenalty].center();
+            sim.ui.animations.append(empty_animation).require(target);
             sim.launch_particle(target, to,
               TIME, BLUE, 0.4, 0.03
             ).chain();
@@ -1242,11 +1314,11 @@ async fn main() {
               fulfilled_quests.insert(p, q);
               sim.quests.remove(p);
               sim.prizes.insert(p, Prize::Heal);
-              let to = sim.layout[&HudItem::Tile].center();
+              let to = sim.ui.layout[&HudItem::Tile].center();
               for i in 0..(QUEST_REWARD as u8) {
                 let delay = f64::from(i)* 0.7 * BASE_ANIMATION_DURATION ;
-                sim.animations.append_empty(0.).require(PLAYER_UNIT_ID);
-                sim.animations.append_empty(delay).chain();
+                sim.ui.animations.append_empty(0.).require(PLAYER_UNIT_ID);
+                sim.ui.animations.append_empty(delay).chain();
                 sim.defer_play_sound(tile_sound()).chain();
                 sim.launch_particle(p, to, TILE, SKYBLUE, 3., 0.1).chain();
                 sim.add_tiles(1).chain();
@@ -1262,8 +1334,8 @@ async fn main() {
         // try to collect prize
         if let Some(&prize) = sim.prizes.get(target) {
           sim.prizes.remove(target);
-          let to = sim.layout[&HudItem::Hp].center();
-          sim.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
+          let to = sim.ui.layout[&HudItem::Hp].center();
+          sim.ui.animations.append_empty(0.).reserve(PLAYER_UNIT_ID);
           sim.defer_play_sound(LEVEL_UP_SOUND).chain();
           sim.launch_particle(target, to,
             prize_img(prize), RED,
@@ -1288,20 +1360,20 @@ async fn main() {
           2.).reserve(PLAYER_UNIT_ID);
         sim.defer_set_hud(|hud| hud.defeat = true).chain();
       }
-      if !player_moved { sim.compass_flash = 0.6; }
+      if !player_moved { sim.ui.compass_flash = 0.6; }
     }
 
     //debug!("{:?}", sim.player_pos);
     let camera_offset: IVec = display.camera_focus - sim.player_pos;
     display.camera_focus = sim.player_pos + CAMERA_TETHER.clamp_pos(camera_offset);
     unsafe {
-      *sim.camera_ref.get() = display.camera_focus;
+      *sim.ui.camera_ref.get() = display.camera_focus;
     }
 
     {//monsters
       let mut monsters_go = false;
       if tile_placed || (player_moved && sim.player_tiles < 1) {
-        sim.animations.sync_positions();
+        sim.ui.animations.sync_positions();
         sim.add_monster_turns(1).chain();
         monsters_go = true;
         sim.update_player_dmap();
@@ -1310,7 +1382,7 @@ async fn main() {
 
       let mut acceleration = 1.0;
       while monsters_go && sim.monster_turns > 0 {
-        sim.enemy_supply += sim.void_frontier.len() as i64;
+        sim.sealed.enemy_supply += sim.sealed.void_frontier.len() as i64;
         spawns.clear();
         sim.update_nearest_dmap();
         //do monster turn
@@ -1322,12 +1394,12 @@ async fn main() {
           //debug!("a monster turn happened at {:?}", pos)
         }
         //spawn monsters maybe
-        for &p in sim.void_frontier.iter() {
+        for &p in sim.sealed.void_frontier.iter() {
           if sim.enemies.contains_key(p) {
             // don't spawn a monster if there's already a monster
             continue;
           }
-          if ((sim.rng.next_u64() % 5000) as i64 ) < sim.enemy_supply {
+          if ((sim.rng.next_u64() % 5000) as i64 ) < sim.sealed.enemy_supply {
             //spawn a monster in this tile
             let random_enemy_type =
               EnemyType::list()[(sim.rng.next_u32() % 3) as usize];
@@ -1339,8 +1411,8 @@ async fn main() {
           sim.spawn_enemy(*t,*p);
         }
 
-        sim.animations.append_empty(BASE_ANIMATION_DURATION / acceleration).chain();
-        sim.animations.sync_positions().chain();
+        sim.ui.animations.append_empty(BASE_ANIMATION_DURATION / acceleration).chain();
+        sim.ui.animations.sync_positions().chain();
         sim.add_monster_turns(-1).chain();
         acceleration += 0.5;
       }
@@ -1373,7 +1445,7 @@ async fn main() {
       // Draw tile backgrounds
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
-        if sim.board[p] == Tile::default() { continue; }
+        if sim.sealed.board[p] == Tile::default() { continue; }
         let r = display.pos_rect(p.into());
         draw_rectangle(r.x, r.y, r.w, r.h, DARKBROWN);
         //display.draw_tile_1(r, tile, terrain);
@@ -1382,8 +1454,8 @@ async fn main() {
       for &terrain in Terrain::DRAW_ORDER {
         for offset in DRAW_BOUNDS.iter() {
           let p = sim.player_pos + offset;
-          let mut tile = sim.board[p];
-          if terrain == Terrain::None && sim.hud.hidden_spaces.contains(p) {
+          let mut tile = sim.sealed.board[p];
+          if terrain == Terrain::None && sim.ui.hud.hidden_spaces.contains(p) {
             tile = Tile::default();
           }
           let r = display.pos_rect(p.into());
@@ -1392,12 +1464,12 @@ async fn main() {
         }
       }
       // draw region hints
-      for rid in &sim.open_regions {
+      for rid in &sim.sealed.open_regions {
         let font_size = 40;
-        if let Some(sz) = sim.region_sizes.get(&rid) {
+        if let Some(sz) = sim.sealed.region_sizes.get(&rid) {
           if *sz > REGION_REWARD_THRESHOLD {
-            let (pos, dir) = sim.region_start.get(&rid).unwrap();
-            let terrain = sim.board[*pos].contents[dir.index()];
+            let (pos, dir) = sim.sealed.region_start.get(&rid).unwrap();
+            let terrain = sim.sealed.board[*pos].contents[dir.index()];
             let mut xp = *sz - REGION_REWARD_THRESHOLD;
             if terrain == Terrain::Town {
               xp = *sz - 1
@@ -1417,7 +1489,7 @@ async fn main() {
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
         let r = display.pos_rect(p.into());
-        if sim.hud.highlighted_spaces.contains(p) {
+        if sim.ui.hud.highlighted_spaces.contains(p) {
           display.draw_img(r, SKYBLUE, &BOX);
         }
       }
@@ -1440,7 +1512,7 @@ async fn main() {
       // tile placement hints
       for offset in DRAW_BOUNDS.iter() {
         let p = sim.player_pos + offset;
-        if !sim.void_frontier.contains(p) { continue; }
+        if !sim.sealed.void_frontier.contains(p) { continue; }
         {
           let compat = sim.tile_compatibility(p, sim.player_current_tile());
           if compat == 1 {
@@ -1453,7 +1525,7 @@ async fn main() {
         // rotation hints
         let mut g = D8::E;
         for _ in 0..4 {
-          let rt = g * sim.player_next_tile;
+          let rt = g * sim.sealed.player_next_tile;
           let compat = sim.tile_compatibility(p, rt);
           if debug_draw {
             debug!("pos {:?} compat {} @ {:?}", p, compat, g);
@@ -1472,7 +1544,7 @@ async fn main() {
       debug_draw = false;
 
       // draw enemies
-      for ragdoll in sim.ragdolls.values() {
+      for ragdoll in sim.ui.ragdolls.values() {
         display.draw_grid(
           ragdoll.pos,
           ragdoll.color,
@@ -1482,11 +1554,11 @@ async fn main() {
 
       // draw player path
       {
-        let n = sim.hud.desire_path.len();
+        let n = sim.ui.hud.desire_path.len();
         if n > 1 {
           for i in 1..n {
-            let prev = sim.hud.desire_path[i-1];
-            let here = sim.hud.desire_path[i];
+            let prev = sim.ui.hud.desire_path[i-1];
+            let here = sim.ui.hud.desire_path[i];
             let Ok(dir) = Dir4::try_from(here - prev) else { continue };
             let is_end = i == (n-1);
             let r = display.pos_rect(here.into());
@@ -1495,7 +1567,7 @@ async fn main() {
               &path_img(dir, is_end)
             );
             if is_end { continue; }
-            let next = sim.hud.desire_path[i+1];
+            let next = sim.ui.hud.desire_path[i+1];
             let Ok(nextdir) = Dir4::try_from(here - next) else { continue };
             display.draw_img(r,
               YELLOW,
@@ -1511,9 +1583,9 @@ async fn main() {
         let p = sim.player_pos + offset;
         if p != BOSS_LOCATION { continue; }
         let r = display.pos_rect(p.into());
-        let text = format!("{}", sim.hud.bosses);
+        let text = format!("{}", sim.ui.hud.bosses);
         let font_size = 70;
-        if sim.hud.bosses >= 2 {
+        if sim.ui.hud.bosses >= 2 {
           let metrics = measure_text(&text, None, font_size, 1.);
           let leftover = r.w - metrics.width;
 
@@ -1539,11 +1611,11 @@ async fn main() {
           let w = display.dim.x;
           let rect = Rect { x, y, w, h };
           draw_rectangle(x, y, w, h, DARKGRAY);
-          sim.layout.insert(HudItem::Bar, rect);
+          sim.ui.layout.insert(HudItem::Bar, rect);
         }
 
-        if sim.hud.defeat {
-            let bar = sim.layout[&HudItem::Bar];
+        if sim.ui.hud.defeat {
+            let bar = sim.ui.layout[&HudItem::Bar];
             let display_text = format!("Defeated...");
             let textdim: TextDimensions = measure_text(&display_text, None, font_size, font_scale);
             let leftover = bar.h - textdim.height;
@@ -1552,36 +1624,36 @@ async fn main() {
             draw_text(&display_text, x, y, font_size as f32, WHITE);
         } else {
           { // Next Tile
-            let hudbar: Rect = sim.layout[&HudItem::Bar];
+            let hudbar: Rect = sim.ui.layout[&HudItem::Bar];
             let r = Rect {
               x: hudbar.w - sz.x - margin,
               y: hudbar.y + margin ,
               w: sz.x,
               h: sz.y
             };
-            sim.layout.insert(HudItem::Tile, r);
+            sim.ui.layout.insert(HudItem::Tile, r);
             if sim.player_tiles > 0 {
               display.draw_tile(
                 r,
-                sim.hud.tile_transform * sim.player_next_tile,
-                sim.hud.tile_rotation as f32
+                sim.ui.hud.tile_transform * sim.sealed.player_next_tile,
+                sim.ui.hud.tile_rotation as f32
               );
               display.draw_img_r(
                 r,
                 WHITE,
                 &HINT,
-                (sim.hud.tile_transform * Dir4::Right).radians() + sim.hud.tile_rotation,
+                (sim.ui.hud.tile_transform * Dir4::Right).radians() + sim.ui.hud.tile_rotation,
               );
             }
-            if let Some(q) = sim.next_quest {
+            if let Some(q) = sim.sealed.next_quest {
               draw_quest(&display, &r, &q);
             }
           }
 
           { // Remaining tiles
-            let r = sim.layout[&HudItem::Tile];
-            let bar = sim.layout[&HudItem::Bar];
-            let remaining_tiles = format!("{}", sim.hud.tiles);
+            let r = sim.ui.layout[&HudItem::Tile];
+            let bar = sim.ui.layout[&HudItem::Bar];
+            let remaining_tiles = format!("{}", sim.ui.hud.tiles);
             let textdim: TextDimensions = measure_text(&remaining_tiles, None, font_size, font_scale);
             let leftover = bar.h - textdim.height;
             let x = r.x - textdim.width - margin;
@@ -1590,7 +1662,7 @@ async fn main() {
           }
 
           { // movement arrows
-            let bar = sim.layout[&HudItem::Bar];
+            let bar = sim.ui.layout[&HudItem::Bar];
             let rect = Rect {
               x: bar.x + margin,
               y: bar.y + margin,
@@ -1599,17 +1671,17 @@ async fn main() {
             };
 
             const BLINK: f32 = 0.1;
-            let arrow_color = if sim.compass_flash > 0. &&
-              (sim.compass_flash % (2. * BLINK) > BLINK) {
+            let arrow_color = if sim.ui.compass_flash > 0. &&
+              (sim.ui.compass_flash % (2. * BLINK) > BLINK) {
               RED
             } else {
               WHITE
             };
 
-            sim.layout.insert(HudItem::Arrows, rect);
+            sim.ui.layout.insert(HudItem::Arrows, rect);
             for d in Dir4::list() {
               let target = sim.player_pos + d.into();
-              if sim.void_frontier.contains(target) {
+              if sim.sealed.void_frontier.contains(target) {
                 let compat = sim.tile_compatibility(target, sim.player_current_tile());
                 // tile doesnt fit
                 if compat == 0 { continue; }
@@ -1618,7 +1690,7 @@ async fn main() {
               }
               if sim.in_combat() && !sim.is_road_dir(d) {
                 // we can't step on void
-                if sim.board[target] == Tile::default() { continue; }
+                if sim.sealed.board[target] == Tile::default() { continue; }
                 // we can't step on a free space
                 if !sim.enemies.contains_key(target) { continue; }
               }
@@ -1631,13 +1703,13 @@ async fn main() {
           }
 
           { // Current/Max HP and XP
-            let bar = sim.layout[&HudItem::Bar];
-            let arrows = sim.layout[&HudItem::Arrows];
+            let bar = sim.ui.layout[&HudItem::Bar];
+            let arrows = sim.ui.layout[&HudItem::Arrows];
             let blink = get_time() % (2. * BLINK) > BLINK;
 
-            let hp = format!("HP: {}/{} ", sim.hud.hp, sim.player_hp_max);
+            let hp = format!("HP: {}/{} ", sim.ui.hud.hp, sim.player_hp_max);
             let hpdim: TextDimensions = measure_text(&hp, None, font_size, font_scale);
-            let xp = format!("XP: {}/{}", sim.hud.xp, sim.player_xp_next());
+            let xp = format!("XP: {}/{}", sim.ui.hud.xp, sim.player_xp_next());
             let xpdim: TextDimensions = measure_text(&xp, None, font_size, font_scale);
             let leftover = bar.h - hpdim.height - xpdim.height;
             let x = margin + arrows.x + arrows.w;
@@ -1653,42 +1725,42 @@ async fn main() {
               h: xpdim.height,
               y: bar.y + (0.66 * leftover) + hpr.h,
             };
-            let hp_color = if sim.player_hp == 1 && blink { RED } else { sim.hud.hp_color };
+            let hp_color = if sim.player_hp == 1 && blink { RED } else { sim.ui.hud.hp_color };
             draw_text(&hp, hpr.x, hpr.y + hpdim.offset_y, font_size as f32, hp_color);
             const BLINK: f64 = 1.;
             let mut xp_color = WHITE;
-            let can_level = sim.hud.xp >= sim.player_xp_next();
+            let can_level = sim.ui.hud.xp >= sim.player_xp_next();
             if can_level && blink {
               xp_color = YELLOW;
             };
             draw_text(&xp, xpr.x, xpr.y + xpdim.offset_y, font_size as f32, xp_color);
-            sim.layout.insert(HudItem::Hp, hpr);
-            sim.layout.insert(HudItem::Xp, xpr);
+            sim.ui.layout.insert(HudItem::Hp, hpr);
+            sim.ui.layout.insert(HudItem::Xp, xpr);
           }
 
 
           { // num monster turns
-            let bar = sim.layout[&HudItem::Bar];
+            let bar = sim.ui.layout[&HudItem::Bar];
             let icon_rect = Rect{
               x: bar.w * 0.5,
               y: bar.y + margin,
               w: sz.x,
               h: sz.y,
             };
-            if sim.hud.turns > 0 {
-              let text = format!("{}", sim.hud.turns);
+            if sim.ui.hud.turns > 0 {
+              let text = format!("{}", sim.ui.hud.turns);
               let textdim = measure_text(&text, None, font_size, font_scale);
               let y = bar.y + 0.5 * (bar.h - textdim.height) + textdim.offset_y;
               let x = icon_rect.x - textdim.width - margin;
               display.draw_img( icon_rect, BLUE, &TIME);
               draw_text(&text,x,y, font_size.into(), WHITE);
             }
-            sim.layout.insert(HudItem::SpeedPenalty, icon_rect);
+            sim.ui.layout.insert(HudItem::SpeedPenalty, icon_rect);
           }
 
           if !tile_compat { // discard hint
-            let bar = sim.layout[&HudItem::Bar];
-            let tile = sim.layout[&HudItem::Tile];
+            let bar = sim.ui.layout[&HudItem::Bar];
+            let tile = sim.ui.layout[&HudItem::Tile];
             let hint = "[X] to discard";
             let hint_dim: TextDimensions = measure_text(hint, None, font_size, font_scale);
             let hint_rect = Rect {
@@ -1697,13 +1769,13 @@ async fn main() {
               h: hint_dim.height,
               w: hint_dim.width,
             };
-            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.hud.hint_color);
-            sim.layout.insert(HudItem::DiscardHint, hint_rect);
+            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.ui.hud.hint_color);
+            sim.ui.layout.insert(HudItem::DiscardHint, hint_rect);
           }
 
           // level up hint
-          if sim.hud.xp >= sim.player_xp_next() && !sim.player_dead() {
-            let xp = sim.layout[&HudItem::Xp];
+          if sim.ui.hud.xp >= sim.player_xp_next() && !sim.player_dead() {
+            let xp = sim.ui.layout[&HudItem::Xp];
             let hint = "[Z]";
             let hint_dim: TextDimensions = measure_text(hint, None, font_size, font_scale);
             let hint_rect = Rect {
@@ -1712,21 +1784,21 @@ async fn main() {
               h: hint_dim.height,
               w: hint_dim.width,
             };
-            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.hud.hint_color);
-            sim.layout.insert(HudItem::LevelHint, hint_rect);
+            draw_text(hint, hint_rect.x, hint_rect.y, font_size as f32, sim.ui.hud.hint_color);
+            sim.ui.layout.insert(HudItem::LevelHint, hint_rect);
           }
         }
       }
 
       { // draw dmap2
-        // let dmap = &sim.nearest_enemy_dmap;
+        // let dmap = &sim.sealed.nearest_enemy_dmap;
         // for offset in (IRect{ x: -8, y:-8, width: 17, height: 17}).iter() {
         //  let p = sim.player_pos + offset;
         //  let dmapvalue = dmap[p];
         //  if dmapvalue > 20 {
         //    continue;
         //  }
-        //  //let tile = sim.board[p];
+        //  //let tile = sim.sealed.board[p];
         //  let r = DISPLAY_GRID.rect(p - display.camera_focus);
         //  let number = format!("{}", dmapvalue);
         //  let font_size = 50;
@@ -1745,20 +1817,20 @@ async fn main() {
       }
 
       { // Draw particles
-        for p in &sim.particles {
+        for p in &sim.ui.particles {
           let r = Rect{x:-32., y: -32., w: 64., h: 64.}.offset(p.pos);
           display.draw_img(r, p.color, &p.img);
         }
-        for t in &sim.flying_tiles {
+        for t in &sim.ui.flying_tiles {
           let r = Rect{x:-64., y: -64., w: 128., h: 128.}.offset(t.pos);
           display.draw_tile(r, t.tile, 0.);
         }
       }
     }
 
-    if sim.hud.victory {
+    if sim.ui.hud.victory {
       clear_background(BLACK);
-      let score = sim.score_min_hp * sim.score_tiles_placed;
+      let score = sim.score_min_hp * sim.sealed.score_tiles_placed;
       let mut y = 300.;
       let margin = 15.;
       let font_size = 64;
@@ -1766,7 +1838,7 @@ async fn main() {
       let mut i = 0;
       for text in &[
         "Victory!",
-        &format!("Tiles Placed {} ", sim.score_tiles_placed),
+        &format!("Tiles Placed {} ", sim.sealed.score_tiles_placed),
         &format!("Minimum HP {}", sim.score_min_hp),
         &format!("Final Score {}", score),
       ] {
@@ -1802,7 +1874,7 @@ async fn main() {
       );
     }
 
-    sim.compass_flash -= get_frame_time();
+    sim.ui.compass_flash -= get_frame_time();
     decay_sounds(get_frame_time());
     next_frame().await;
 
@@ -1814,7 +1886,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
   // filter out invalid tiles
   let mut valid: Vec<IVec> = Vec::new();
   for c in candidates.drain(0..) {
-    if sim.board[c] != Tile::default() && !sim.enemies.contains_key(c) {
+    if sim.sealed.board[c] != Tile::default() && !sim.enemies.contains_key(c) {
       valid.push(c);
     }
   }
@@ -1829,7 +1901,7 @@ fn select_candidate(mut candidates: Vec<Position>, sim: &mut SimulationState) ->
 
 fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> {
   // add forest edges to valid set
-  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.board);
+  let mut valid: Vec<Dir4> = forest_edges(&pos, &sim.sealed.board);
   debug!("forest dirs {:?} for {:?}", valid, sim.enemies[pos]);
   if valid.len() == 0 {
     // no forest edges means anything is a candidate
@@ -1851,14 +1923,14 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     // dont step on me
     if equivalent(target, sim.player_pos) { continue; }
     // no void
-    if sim.board[target] == Tile::default() { continue; }
+    if sim.sealed.board[target] == Tile::default() { continue; }
     // dont step on quest
     if sim.quests.contains_key(target) { continue; }
     // dont step on prize
     if sim.prizes.contains_key(target) { continue; }
     candidates.push(target);
   }
-  if sim.board[pos] != Tile::default() {
+  if sim.sealed.board[pos] != Tile::default() {
     candidates.push(pos);
   }
   match sim.enemies[pos].t {
@@ -1866,19 +1938,19 @@ fn enemy_pathfind(sim: &mut SimulationState, pos: Position) -> Option<Position> 
     EnemyType::Blinky => {
       let mut min_score: i16 = i16::MAX;
       for &c in &candidates {
-        min_score = min_score.min(sim.player_dmap[c]);
+        min_score = min_score.min(sim.sealed.player_dmap[c]);
       }
       candidates = candidates.drain(..).filter(|c|{
-        min_score == sim.player_dmap[*c]
+        min_score == sim.sealed.player_dmap[*c]
       }).collect();
     }
     EnemyType::Pinky => {
       let mut max_score: i16 = i16::MIN;
       for &c in &candidates {
-        max_score = max_score.max(sim.nearest_enemy_dmap[c]);
+        max_score = max_score.max(sim.sealed.nearest_enemy_dmap[c]);
       }
       candidates = candidates.drain(..).filter(|c|{
-        max_score == sim.nearest_enemy_dmap[*c]
+        max_score == sim.sealed.nearest_enemy_dmap[*c]
       }).collect();
     }
     EnemyType::GhostWitch => {

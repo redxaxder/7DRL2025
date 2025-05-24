@@ -1,3 +1,6 @@
+use std::ops::Deref;
+use std::ops::DerefMut;
+
 pub struct Multiset<T> {
   ts: Vec<T>,
   counts: Vec<u8>,
@@ -126,3 +129,37 @@ impl<T> std::ops::Index<usize> for Set<T> {
 
 pub type Set<T> = linear_map::set::LinearSet<T>;
 pub type Map<K,V> = linear_map::LinearMap<K,V>;
+
+
+pub struct DropBear<'a, T> {
+  ptr: &'a mut T,
+  cleanup: Box<dyn FnOnce(&'a mut T) + 'a>,
+}
+impl<'a, T> DropBear<'a, T> {
+  pub fn new(ptr: &'a mut T, f: impl FnOnce(&'a mut T) + 'a) -> Self {
+    let cleanup = Box::new(f);
+    Self{ ptr, cleanup }
+  }
+}
+
+impl<'a, T> Drop for DropBear<'a,T> {
+  fn drop(&mut self) {
+    let mut f:Box <dyn FnOnce(&'a mut T) + 'a> = Box::new(|_|{});
+    std::mem::swap(&mut self.cleanup, &mut f);
+    let p = self.ptr as *mut T;
+    f(unsafe { &mut *p })
+  }
+}
+
+impl<'a,T> Deref for DropBear<'a,T> {
+  type Target = T;
+  fn deref(&self) -> &T {
+    &self.ptr
+  }
+}
+
+impl<'a,T> DerefMut for DropBear<'a,T> {
+  fn deref_mut(&mut self) -> &mut T {
+    &mut self.ptr
+  }
+}
